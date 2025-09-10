@@ -1,0 +1,483 @@
+
+Title: Contractor Billing App — Next.js (Vercel) + FastAPI Implementation Plan
+Author: ChatGPT
+Date: 2025-09-09
+Target: A developer (e.g., Claude Code) can read this file and begin implementing.
+
+============================================================
+0) PURPOSE & SCOPE
+============================================================
+Build a contractor-focused billing platform addressing the top weaknesses in existing apps:
+  W1. Inflexible billing rules (no mixed models, limited per-task overrides)
+  W2. Clunky UX for non-accountants (confusing retainage/markup/tax)
+  W3. Weak mobile/offline support; poor field capture of time/expenses
+  W4. Shallow integrations (limited 2-way sync; no custom fields/change orders)
+  W5. One-size pricing (features locked behind tiers; no modularity)
+  W6. Subcontractors poorly supported (rates/markup/approvals visibility gaps)
+  W7. Weak change order handling (scope changes don’t tie cleanly to billing)
+  W8. Limited real-time sync & auditability (stale data, weak logs/approvals)
+
+This implementation plan provides architecture, data model, API contracts, UI flows,
+rules engine spec, and a phased roadmap to ship an MVP that solves W1/W2/W6 first,
+with foundations for the rest.
+
+Primary use case: IT contracting firm with many contractors paid differently and
+serving different clients/projects. Mobile-first time entry; flexible billing rules;
+subcontractor & team support; clear approvals and audit log.
+
+============================================================
+1) HIGH-LEVEL ARCHITECTURE
+============================================================
+- Frontend: Next.js 14+ (App Router) deployed to Vercel
+  - Mobile-first responsive UI; PWA (installable on iOS/Android)
+  - Authentication via NextAuth (e.g., Auth0 provider) or direct JWT from FastAPI
+  - Data fetching via server actions / edge APIs calling FastAPI
+  - State management: React Query (TanStack Query) for API caching
+
+- Backend: FastAPI (Python 3.11+)
+  - Deployed on Fly.io/Render/Railway (stateless app)
+  - PostgreSQL (managed, e.g., Supabase/Neon.io) with SQLAlchemy + Alembic
+  - Celery/RQ for async jobs (invoice generation, syncs)
+  - Authentication: OIDC (Auth0) or JWT (PyJWT); RBAC (role-based access control)
+  - Integrations layer for accounting (QuickBooks/Xero), CRM (HubSpot), and webhooks
+  - Object storage (S3-compatible) for attachments (receipts, statements)
+
+- Observability & DevOps
+  - Logging: structlog + OpenTelemetry; ship to Logtail/Datadog
+  - Metrics/Tracing: OTEL + provider (Honeycomb/Datadog)
+  - CI/CD: GitHub Actions (lint, test, build, deploy); Vercel for FE; Fly/Render for BE
+
+- Security & Multi-Tenancy
+  - Row-level tenancy via org_id on all records; DB row policies if using Supabase
+  - Least-privilege RBAC; field-level permission checks server-side
+  - Secrets via Vercel env + backend platform secrets; rotate regularly
+  - Data encryption at rest (managed), in transit (TLS), S3 SSE
+
+============================================================
+2) DOMAIN MODEL (POSTGRES)
+============================================================
+Conventions:
+- id: UUID (v4)
+- *_at: timestamptz
+- *_id: UUID FK
+- Monetary fields: NUMERIC(12,2)
+- JSONB for flexible configs
+
+Core tables (MVP):
+1. organizations
+   - id, name, timezone, currency_code, created_at
+2. users
+   - id, org_id, email (unique per org), name, status, created_at, last_login_at
+3. roles (static seed) & user_roles
+   - roles: ADMIN, MANAGER, CONTRACTOR, SUBCONTRACTOR, CLIENT_VIEWER
+   - user_roles: id, org_id, user_id, role, created_at
+4. clients
+   - id, org_id, name, billing_contact_email, terms, default_tax_profile (JSONB), created_at
+5. projects
+   - id, org_id, client_id, name, code, status, start_date, end_date, notes
+   - billing_model: ENUM('HOURLY','FIXED','MILESTONE','RETAINER','T&M','MIXED')
+   - billing_settings JSONB (examples below)
+6. tasks
+   - id, org_id, project_id, name, category, is_billable bool, default_rate NUMERIC(12,2), uom ENUM('HOUR','ITEM','DAY')
+7. contractor_profiles
+   - id, org_id, user_id, default_rate, role_title, external_ref, active bool
+8. team_memberships
+   - id, org_id, project_id, user_id, role ENUM('LEAD','MEMBER','SUB'), billable bool, visibility JSONB
+9. subcontractor_agreements
+   - id, org_id, subcontractor_user_id, project_id, rate NUMERIC(12,2), markup NUMERIC(5,2), terms JSONB
+10. billing_rules
+   - id, org_id, scope ENUM('ORG','CLIENT','PROJECT','TASK','USER'), scope_id UUID (nullable for ORG scope)
+   - priority INT (lower = earlier), rule JSONB, active bool, created_at
+   - (See section 4 for rule format and evaluation)
+11. time_entries
+   - id, org_id, user_id, project_id, task_id, start_at, end_at, duration_minutes, notes
+   - status ENUM('DRAFT','SUBMITTED','APPROVED','REJECTED'), approved_by, approved_at
+   - geo JSONB (optional), source ENUM('MOBILE','WEB','IMPORT','API')
+12. expenses
+   - id, org_id, user_id, project_id, task_id, amount, currency, receipt_url, notes, status (like time_entries)
+13. change_orders
+   - id, org_id, project_id, title, description, delta_budget NUMERIC(12,2), delta_scope JSONB, status ENUM('DRAFT','APPROVED','REJECTED'), approved_by, approved_at
+14. invoices
+   - id, org_id, client_id, project_id, number, issue_date, due_date, status ENUM('DRAFT','SENT','PAID','VOID'), subtotal, tax_total, total, currency, external_ref
+15. invoice_lines
+   - id, invoice_id, kind ENUM('TIME','EXPENSE','FIXED','MILESTONE','RETAINER','ADJUSTMENT','RETainAGE'), description, quantity NUMERIC(12,2), unit_price, amount, meta JSONB
+16. retainage_ledgers
+   - id, org_id, project_id, retainage_rate NUMERIC(5,2), retained_total, released_total, entries JSONB
+17. approvals
+   - id, org_id, item_type ENUM('TIME','EXPENSE','CHANGE_ORDER','INVOICE'), item_id, approver_user_id, decision ENUM('APPROVE','REJECT'), comment, decided_at
+18. audit_logs
+   - id, org_id, actor_user_id, action, entity, entity_id, before JSONB, after JSONB, created_at
+19. webhooks
+   - id, org_id, event, target_url, secret, active bool, created_at
+
+Billing model examples (projects.billing_settings JSONB):
+- HOURLY: { "client_rate": 150, "min_increment_min": 15 }
+- FIXED:  { "fixed_price": 12000, "billing_schedule": "MILESTONE|PROGRESS|ON_ACCEPTANCE" }
+- MILESTONE: { "milestones": [ { "name": "Phase 1", "price": 6000 }, ... ] }
+- RETAINER: { "retainer_amount": 5000, "period": "MONTHLY", "overage_rate": 160 }
+- T&M: { "base_rate": 140, "materials_markup_pct": 12.5 }
+- MIXED: { "components": [ { "type": "FIXED", "amount": 5000 }, { "type": "HOURLY", "rate": 160, "tasks": ["Support","Onsite"] } ] }
+
+============================================================
+3) PERMISSIONS MODEL (RBAC + VISIBILITY)
+============================================================
+- ADMIN: Full access within org; manage billing rules, rates, users, integrations.
+- MANAGER: Approve time/expenses; create invoices; manage change orders; manage teams.
+- CONTRACTOR: Log time/expenses; view personal invoices/pay statements (if enabled).
+- SUBCONTRACTOR: Same as contractor but visibility limited by team_memberships.visibility JSON.
+- CLIENT_VIEWER: Read-only on invoices and status; optional portal.
+- Field-level visibility: e.g., subs can’t see internal markups; clients don’t see payroll.
+
+============================================================
+4) RULES ENGINE (SOLVES W1, W6, W7)
+============================================================
+Goal: Custom billing rules per client/task/project/user with deterministic evaluation.
+
+Evaluation order:
+1) ORG → 2) CLIENT → 3) PROJECT → 4) TASK → 5) USER (contractor)
+Within each scope, order by priority ASC. First rule that sets a field “wins” unless override=true.
+
+Rule JSON schema (examples):
+{
+  "name": "Onsite premium for ACME",
+  "conditions": {
+    "client_id": "<uuid>",            // optional if scope=CLIENT
+    "task_category": "Onsite",
+    "day_of_week": ["SAT","SUN"],
+    "time_of_day": {"from":"18:00","to":"06:00"}
+  },
+  "effects": {
+    "rate": {"op":"set","value": 185.00},
+    "min_increment_min": {"op":"set","value": 30},
+    "overtime_multiplier": {"op":"set","value": 1.5},
+    "materials_markup_pct": {"op":"set","value": 10}
+  },
+  "override": false,
+  "active_date_range": {"from":"2025-01-01","to": null}
+}
+
+Supported condition keys (MVP):
+- client_id, project_id, task_id, task_category
+- contractor_user_id, role_title
+- day_of_week, time_of_day range
+- location (geo radius), source
+- threshold-based (>= hours in period, >= quantity)
+
+Effects (MVP):
+- rate, min_increment_min, overtime_multiplier
+- fixed_price_component_add (for MIXED)
+- materials_markup_pct
+- retainage_rate
+- rounding rules (ceil to 15 min, etc.)
+
+Pseudo-code (Python-ish):
+def evaluate_pricing(context, rules):
+    price = default_from_project(context.project)
+    for scope in ["ORG","CLIENT","PROJECT","TASK","USER"]:
+        for rule in sorted(rules[scope], key=lambda r: r.priority):
+            if matches(rule.conditions, context) and date_active(rule):
+                for k, effect in rule.effects.items():
+                    if k not in price or rule.override:
+                        price[k] = apply_effect(price.get(k), effect)
+    return price
+
+============================================================
+5) CHANGE ORDERS (SOLVES W7)
+============================================================
+- Each change order modifies project scope/budget in change_orders.delta_scope and delta_budget.
+- Approval of a change order triggers pricing recalculation for future time/expenses.
+- Option: retroactive adjustments converted into an "ADJUSTMENT" invoice line.
+- Link change_orders → invoices via invoice_lines.meta { "change_order_id": ... }
+
+============================================================
+6) RETAINAGE & PROGRESS BILLING (W2)
+============================================================
+- retainage_ledgers track retainage_rate by project and holdbacks on each invoice line (RETainAGE entry).
+- Release retainage via a dedicated invoice (type: 'RETainAGE_RELEASE') or adding lines with negative RETainAGE amount.
+- Progress billing: project.billing_settings = {progress_pct_enabled:true}; allow % complete per milestone or task group.
+
+============================================================
+7) SUBCONTRACTORS & TEAMS (SOLVES W6)
+============================================================
+- team_memberships define who can log against which project/task.
+- subcontractor_agreements control pay rates and markups; billing rate derived via rules or explicit agreement.
+- visibility JSON (example): { "show_pay_rate": false, "show_client_name": true }
+- approvals queue: managers approve SUBMITTED time/expenses; auto-approve allowed by rule/effect.
+
+============================================================
+8) FRONTEND (NEXT.JS) — PAGES & FLOWS (SOLVES W2, W3, W8)
+============================================================
+Tech: Next.js App Router, TypeScript, Tailwind, Shadcn/ui, React Query, PWA.
+
+Key routes:
+- /login, /onboarding (wizard: org → clients → projects → rules → invite team)
+- /dashboard (cards: hours today, approvals, invoice drafts, AR aging)
+- /time (mobile-first): start/stop timer, quick task selection, offline caching
+- /expenses: capture receipt (camera), amount, project/task
+- /approvals: managers review/approve time/expenses
+- /invoices: list, create from approved time/expenses, send via email/pdf
+- /projects/:id: summary, milestones, change orders, team, rules
+- /rules: list + editor with presets (overtime, weekend premium, client-specific rates)
+- /settings: org, integrations, roles
+
+PWA/Offline:
+- Cache static + API responses via service worker
+- Queue offline time entries/expenses; sync when online (with conflict resolution)
+
+UX Guidelines:
+- Plain language (avoid accountant jargon by default; tooltips for details)
+- Guided actions (empty states with “Add your first client” CTA)
+- Accessibility & keyboard support
+- Error clarity and undo (snackbar with “View details” → audit log)
+
+============================================================
+9) BACKEND (FASTAPI) — SERVICE LAYOUT
+============================================================
+Project structure:
+backend/
+  app/
+    main.py
+    api/
+      v1/
+        auth.py
+        users.py
+        clients.py
+        projects.py
+        tasks.py
+        time_entries.py
+        expenses.py
+        invoices.py
+        rules.py
+        change_orders.py
+        approvals.py
+        webhooks.py
+    core/
+      config.py (env)
+      security.py (JWT/OIDC)
+      rbac.py
+    db/
+      base.py (SQLAlchemy)
+      models/*.py
+      session.py
+      migrations/ (Alembic)
+    services/
+      pricing_engine.py
+      invoice_builder.py
+      approvals.py
+      retainage.py
+      file_storage.py
+      integrations/
+        quickbooks.py
+        hubspot.py
+    utils/
+      logging.py
+      errors.py
+    tests/
+
+Env (.env):
+- DATABASE_URL=postgresql+psycopg://...
+- JWT_SECRET=...
+- OIDC_* (if using Auth0)
+- S3_* (if using object storage)
+- WEBHOOK_SIGNING_SECRET=...
+
+============================================================
+10) API CONTRACTS (v1) — SELECTED ENDPOINTS
+============================================================
+Auth (if backend-auth):
+- POST /v1/auth/login  -> {token}
+- GET  /v1/auth/me     -> user profile
+
+Users/Orgs:
+- GET /v1/users/me
+- GET /v1/orgs/current
+
+Clients & Projects:
+- POST /v1/clients
+- GET  /v1/clients?search=
+- POST /v1/projects
+- PATCH /v1/projects/:id
+- GET  /v1/projects/:id
+
+Tasks:
+- POST /v1/tasks
+- GET  /v1/tasks?project_id=
+
+Rules:
+- GET  /v1/rules?scope=PROJECT&scope_id=...
+- POST /v1/rules
+- PATCH /v1/rules/:id
+- POST /v1/rules/test (context payload → evaluated price)
+
+Time & Expenses:
+- POST /v1/time_entries
+- PATCH /v1/time_entries/:id (submit/approve/reject)
+- GET  /v1/time_entries?project_id=&status=
+- POST /v1/expenses
+- PATCH /v1/expenses/:id
+- GET  /v1/expenses?project_id=&status=
+
+Change Orders:
+- POST /v1/change_orders
+- PATCH /v1/change_orders/:id (approve/reject)
+- GET  /v1/change_orders?project_id=
+
+Invoices:
+- POST /v1/invoices  (generate from approved items → DRAFT)
+- GET  /v1/invoices?client_id=&status=
+- PATCH /v1/invoices/:id (send, void, mark_paid)
+- POST /v1/invoices/:id/pdf (render + store; return URL)
+
+Approvals:
+- GET  /v1/approvals?type=TIME&status=PENDING
+- POST /v1/approvals/:id/decision
+
+Webhooks:
+- POST /v1/webhooks/:event (for inbound integrations)
+- Sign outgoing webhooks to client systems
+
+Sample payloads:
+- POST /v1/rules/test
+{
+  "context": {
+    "org_id":"...","client_id":"...","project_id":"...","task_id":"...","contractor_user_id":"...",
+    "task_category":"Onsite","start_at":"2025-09-01T18:30:00Z","duration_minutes":120
+  }
+}
+→ { "rate":185.00, "min_increment_min":30, "overtime_multiplier":1.5, "materials_markup_pct":10 }
+
+- POST /v1/invoices
+{
+  "project_id":"...",
+  "range":{"from":"2025-08-01","to":"2025-08-31"},
+  "include":{"time":true,"expenses":true,"fixed":true,"milestones":true},
+  "grouping":"TASK" // or "USER","WEEK"
+}
+
+============================================================
+11) INVOICE BUILD PIPELINE
+============================================================
+1) Gather APPROVED time_entries/expenses for project/date range.
+2) Evaluate pricing for each line using pricing_engine with applicable rules.
+3) Apply retainage (if enabled) and compute subtotal/tax/total.
+4) Create invoice + invoice_lines; store draft.
+5) Render PDF (WeasyPrint/ReportLab) and email/send link.
+6) (Later) Sync to QuickBooks/Xero with mapping layer (custom fields supported).
+
+============================================================
+12) TESTING STRATEGY
+============================================================
+- Unit: rules engine, invoice builder, retainage math, change order application
+- API: FastAPI TestClient; sad-paths (authz failures, invalid rules)
+- E2E: Playwright on Next.js flows (time entry, approvals, invoice)
+- Contract tests: JSON schemas for request/response validation
+- Load tests: k6 for invoice generation bursts
+- Security: OWASP checks; rate limiting on sensitive endpoints
+
+============================================================
+13) ROADMAP & PHASES
+============================================================
+Phase 0 — Project Setup (1–2 weeks)
+  - Repos, CI/CD, environments, base Next.js + FastAPI scaffolding
+  - Auth decision (Auth0/NextAuth vs JWT)
+  - DB setup + Alembic migrations baseline
+  - Seed roles; org bootstrap
+
+Phase 1 — MVP (4–6 weeks) — SOLVES W1, W2, W6
+  - Core models: orgs/users/clients/projects/tasks/time_entries/expenses/rules
+  - Pricing engine v1 (hourly/retainer/T&M/mixed)
+  - Mobile-first time/expense entry (+ offline queue)
+  - Approvals flow
+  - Invoice generation (draft + PDF) + email
+  - Subcontractor & teams basics
+  - Audit logs
+  - PWA install + service worker
+  - Acceptance criteria:
+    * Contractor can install PWA, log time offline, auto-sync later
+    * Manager can approve, create invoice from period, send PDF
+    * Client receives accurate invoice reflecting rules/retainage
+    * Subcontractor cannot see internal markups/pay rates
+
+Phase 2 — Advanced Billing & Change Orders (3–4 weeks) — SOLVES W7, W2
+  - Change orders end-to-end with approvals and invoice tie-in
+  - Retainage ledger & progress billing UI
+  - Milestone billing & % complete entry
+
+Phase 3 — Integrations & Real-Time (3–5 weeks) — SOLVES W3, W4, W8
+  - Real-time sync (WebSockets/SSE) for approvals/invoice status
+  - QuickBooks/Xero 2-way sync (customers, items, invoices, payments)
+  - HubSpot/CRM sync for companies/contacts
+  - Webhooks + Zapier/Make templates
+
+Phase 4 — Modularity & Pricing (2–3 weeks) — SOLVES W5
+  - Feature flags per plan; usage metering
+  - Admin billing console; Stripe subscriptions
+
+Phase 5 — Analytics & Reporting
+  - AR aging, utilization, margin analysis, rule effectiveness
+  - Export/BI connectors
+
+============================================================
+14) FILE STRUCTURE SUGGESTION
+============================================================
+frontend/
+  app/
+    (auth)/login/page.tsx
+    dashboard/page.tsx
+    time/page.tsx
+    expenses/page.tsx
+    approvals/page.tsx
+    invoices/page.tsx
+    projects/[id]/page.tsx
+    rules/page.tsx
+  components/
+    forms/, tables/, cards/
+  lib/
+    api.ts (axios/Fetch client), auth.ts, pwa.ts
+  hooks/
+    useOfflineQueue.ts, useAuth.ts
+  public/ (icons, manifest.json, service-worker.js)
+  styles/globals.css
+  next.config.ts
+  package.json
+
+backend/ (see section 9)
+infra/
+  docker-compose.yml (local dev for db, backend)
+  fly.toml/render.yaml (backend deploy)
+  vercel.json (rewrites/proxy if needed)
+
+============================================================
+15) SAMPLE SERVICE-WORKER (PSEUDO)
+============================================================
+- Cache shell assets on install
+- Intercept POST /time_entries when offline → store in IndexedDB "outbox"
+- On 'sync' event, replay queued requests; mark conflicts for user review
+
+============================================================
+16) SEED DATA & FIXTURES
+============================================================
+- Seed org, admin user, sample client/project/tasks
+- Seed rules:
+  * Weekend premium for ACME onsite tasks (+25% rate, 30-min increment)
+  * After-hours multiplier 1.5x for "Emergency Support"
+  * Materials markup 12.5% for T&M projects
+
+============================================================
+17) NON-FUNCTIONAL REQUIREMENTS
+============================================================
+- Performance: time entry < 150ms perceived; invoice generation < 5s for 1k lines
+- Reliability: backend p95 latency < 300ms; error rate < 0.1%
+- Security: all endpoints org-scoped; audit trail for financial changes
+- Accessibility: WCAG AA; keyboard/contrast checks
+- Internationalization: date/time/currency formatting by org.timezone/currency_code
+
+============================================================
+18) OPEN QUESTIONS (FOR LATER)
+============================================================
+- Will we expose a client portal for invoice download/status?
+- Which accounting system to integrate first (QBO or Xero)?
+- Will we support geo-fenced time entries for onsite jobs?
+- Do we need per-client tax profiles with multi-jurisdiction support in MVP?
+
+END OF PLAN.
