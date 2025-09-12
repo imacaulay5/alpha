@@ -25,6 +25,10 @@ Primary use case: IT contracting firm with many contractors paid differently and
 serving different clients/projects. Mobile-first time entry; flexible billing rules;
 subcontractor & team support; clear approvals and audit log.
 
+CORE VALUE: EASE OF USE - The application must prioritize simplicity and user experience
+above all else. Every feature should be intuitive, every workflow streamlined, and setup
+should be as simple as possible. When in doubt, choose the easier, more user-friendly option.
+
 ============================================================
 1) HIGH-LEVEL ARCHITECTURE
 ============================================================

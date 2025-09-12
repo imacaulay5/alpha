@@ -20,6 +20,7 @@ class User(Base):
     org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     email = Column(String(255), nullable=False, index=True)
     name = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=False)
     status = Column(String(50), nullable=False, default="ACTIVE")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login_at = Column(DateTime(timezone=True), nullable=True)

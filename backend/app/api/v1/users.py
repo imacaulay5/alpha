@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.db.models import User
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -39,8 +40,13 @@ async def list_users(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    # TODO: Implement user listing with org filtering
-    pass
+    try:
+        users = db.query(User).offset(skip).limit(limit).all()
+        print(f"Found {len(users)} users")  # Debug
+        return users
+    except Exception as e:
+        print(f"Error in list_users: {e}")  # Debug
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=UserResponse)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
