@@ -7,7 +7,7 @@ import structlog
 logger = structlog.get_logger()
 
 app = FastAPI(
-    title="Contractor Billing API",
+    title="Alpha API",
     description="A comprehensive contractor billing platform API",
     version="1.0.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
@@ -25,7 +25,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():
-    return {"message": "Contractor Billing API", "version": "1.0.0"}
+    return {"message": "Alpha API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():

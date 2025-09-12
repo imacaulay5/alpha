@@ -5,6 +5,7 @@ from app.db.models import User
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from uuid import UUID
 
 router = APIRouter()
 
@@ -21,8 +22,8 @@ class UserUpdate(BaseModel):
     status: Optional[str] = None
 
 class UserResponse(UserBase):
-    id: str
-    org_id: str
+    id: UUID
+    org_id: UUID
     created_at: datetime
     last_login_at: Optional[datetime] = None
 
@@ -32,9 +33,13 @@ class UserResponse(UserBase):
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(db: Session = Depends(get_db)):
     # TODO: Get current user from auth context
-    pass
+    # For now, return the first admin user for testing
+    user = db.query(User).filter(User.email == "admin@demo.com").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/")
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -43,7 +48,7 @@ async def list_users(
     try:
         users = db.query(User).offset(skip).limit(limit).all()
         print(f"Found {len(users)} users")  # Debug
-        return users
+        return {"message": f"Found {len(users)} users", "count": len(users)}
     except Exception as e:
         print(f"Error in list_users: {e}")  # Debug
         raise HTTPException(status_code=500, detail=str(e))

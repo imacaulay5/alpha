@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Contractor Billing",
+  title: "Alpha",
   description: "A comprehensive contractor billing platform",
   manifest: "/manifest.json",
 };

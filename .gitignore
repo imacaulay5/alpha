@@ -4,6 +4,8 @@ backend/venv/
 
 # Environment variables
 .env
+.env.*
+*.env
 .env.local
 .env.production.local
 .env.development.local
