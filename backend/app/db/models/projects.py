@@ -28,6 +28,7 @@ class Project(Base):
     notes = Column(Text, nullable=True)
     billing_model = Column(SQLEnum(BillingModelEnum), nullable=False, default=BillingModelEnum.HOURLY)
     billing_settings = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     organization = relationship("Organization", back_populates="projects")
     client = relationship("Client", back_populates="projects")
