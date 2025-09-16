@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.db.models import Client
-from pydantic import BaseModel
+from app.db.models.clients import Client
+from app.db.models.users import User
+from app.core.deps import get_current_active_user, require_manager
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from uuid import UUID
@@ -12,7 +14,7 @@ router = APIRouter()
 
 class ClientBase(BaseModel):
     name: str
-    billing_contact_email: str
+    billing_contact_email: EmailStr
     terms: Optional[str] = None
     default_tax_profile: Optional[Dict[str, Any]] = None
 
@@ -21,7 +23,7 @@ class ClientCreate(ClientBase):
 
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
-    billing_contact_email: Optional[str] = None
+    billing_contact_email: Optional[EmailStr] = None
     terms: Optional[str] = None
     default_tax_profile: Optional[Dict[str, Any]] = None
 
@@ -38,50 +40,44 @@ async def list_clients(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
     List clients for the current organization with optional search.
     """
-    # TODO: Get current org from auth context
-    # For now, use first org from database
-    from app.db.models import Organization
-    org = db.query(Organization).first()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    
-    query = db.query(Client).filter(Client.org_id == org.id)
-    
+    query = db.query(Client).filter(Client.org_id == current_user.org_id)
+
     if search:
         query = query.filter(Client.name.ilike(f"%{search}%"))
-    
+
     clients = query.offset(skip).limit(limit).all()
     return clients
 
 @router.post("/", response_model=ClientResponse)
-async def create_client(client: ClientCreate, db: Session = Depends(get_db)):
+async def create_client(
+    client_data: ClientCreate,
+    current_user: User = Depends(require_manager),
+    db: Session = Depends(get_db)
+):
     """
-    Create a new client for the current organization.
+    Create a new client for the current organization (requires MANAGER or ADMIN role).
     """
-    # TODO: Get current org from auth context
-    # For now, use first org from database
-    from app.db.models import Organization
-    org = db.query(Organization).first()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    
     # Check if client name already exists in org
     existing_client = db.query(Client).filter(
-        Client.org_id == org.id,
-        Client.name == client.name
+        Client.org_id == current_user.org_id,
+        Client.name == client_data.name
     ).first()
     if existing_client:
-        raise HTTPException(status_code=400, detail="Client name already exists")
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client name already exists"
+        )
+
     db_client = Client(
         id=uuid.uuid4(),
-        org_id=org.id,
-        **client.dict()
+        org_id=current_user.org_id,
+        **client_data.dict()
     )
     db.add(db_client)
     db.commit()
@@ -89,68 +85,96 @@ async def create_client(client: ClientCreate, db: Session = Depends(get_db)):
     return db_client
 
 @router.get("/{client_id}", response_model=ClientResponse)
-async def get_client(client_id: UUID, db: Session = Depends(get_db)):
+async def get_client(
+    client_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """
-    Get a specific client by ID.
+    Get a specific client by ID within the current organization.
     """
-    # TODO: Add org scope check from auth context
-    client = db.query(Client).filter(Client.id == client_id).first()
+    client = db.query(Client).filter(
+        Client.id == client_id,
+        Client.org_id == current_user.org_id
+    ).first()
     if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
     return client
 
 @router.patch("/{client_id}", response_model=ClientResponse)
 async def update_client(
-    client_id: UUID, 
-    client_update: ClientUpdate, 
+    client_id: UUID,
+    client_update: ClientUpdate,
+    current_user: User = Depends(require_manager),
     db: Session = Depends(get_db)
 ):
     """
-    Update a client's information.
+    Update a client's information (requires MANAGER or ADMIN role).
     """
-    # TODO: Add org scope check from auth context
-    client = db.query(Client).filter(Client.id == client_id).first()
+    client = db.query(Client).filter(
+        Client.id == client_id,
+        Client.org_id == current_user.org_id
+    ).first()
     if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+
     update_data = client_update.dict(exclude_unset=True)
-    
+
     # Check name uniqueness if name is being updated
     if "name" in update_data:
         existing_client = db.query(Client).filter(
-            Client.org_id == client.org_id,
+            Client.org_id == current_user.org_id,
             Client.name == update_data["name"],
             Client.id != client_id
         ).first()
         if existing_client:
-            raise HTTPException(status_code=400, detail="Client name already exists")
-    
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Client name already exists"
+            )
+
     for field, value in update_data.items():
         setattr(client, field, value)
-    
+
     db.commit()
     db.refresh(client)
     return client
 
 @router.delete("/{client_id}")
-async def delete_client(client_id: UUID, db: Session = Depends(get_db)):
+async def delete_client(
+    client_id: UUID,
+    current_user: User = Depends(require_manager),
+    db: Session = Depends(get_db)
+):
     """
-    Delete a client. Only allowed if no projects exist for this client.
+    Delete a client (requires MANAGER or ADMIN role).
+    Only allowed if no projects exist for this client.
     """
-    # TODO: Add org scope check from auth context
-    client = db.query(Client).filter(Client.id == client_id).first()
+    client = db.query(Client).filter(
+        Client.id == client_id,
+        Client.org_id == current_user.org_id
+    ).first()
     if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+
     # Check if client has any projects
-    from app.db.models import Project
+    from app.db.models.projects import Project
     project_count = db.query(Project).filter(Project.client_id == client_id).count()
     if project_count > 0:
         raise HTTPException(
-            status_code=400, 
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot delete client with {project_count} active projects"
         )
-    
+
     db.delete(client)
     db.commit()
     return {"message": "Client deleted successfully"}
