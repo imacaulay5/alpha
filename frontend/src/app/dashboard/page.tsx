@@ -2,13 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usersAPI, timeEntriesAPI } from '@/lib/api';
+import { usersAPI, timeEntriesAPI, authAPI } from '@/lib/api';
 
 export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [user, setUser] = useState<any>(null);
   const [recentTimeEntries, setRecentTimeEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Handle logout
+  const handleLogout = () => {
+    console.log('handleLogout called');
+    try {
+      console.log('Clearing localStorage...');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_info');
+      console.log('localStorage cleared, redirecting...');
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error in handleLogout:', error);
+    }
+  };
 
   // Update time every minute
   useEffect(() => {
@@ -77,10 +91,22 @@ export default function DashboardPage() {
               <Link href="/time" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200">
                 Start Timer
               </Link>
-              <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">
-                  {user ? user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
-                </span>
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-semibold">
+                    {user ? user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    console.log('Logout button clicked');
+                    handleLogout();
+                  }}
+                  className="text-gray-600 hover:text-gray-900 px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200"
+                  title="Logout"
+                >
+                  Logout
+                </button>
               </div>
             </div>
           </div>

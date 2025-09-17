@@ -49,6 +49,25 @@ export const authAPI = {
     return response.data;
   },
 
+  logout: () => {
+    try {
+      console.log('Logging out...');
+
+      // Clear auth token from localStorage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_info');
+
+      console.log('Tokens cleared, redirecting to login...');
+
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback redirect
+      window.location.href = '/login';
+    }
+  },
+
   changePassword: async (currentPassword: string, newPassword: string) => {
     const response = await api.post('/v1/auth/change-password', {
       current_password: currentPassword,
