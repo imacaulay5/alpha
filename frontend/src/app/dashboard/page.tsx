@@ -2,14 +2,44 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usersAPI, timeEntriesAPI } from '@/lib/api';
 
 export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [user, setUser] = useState<any>(null);
+  const [recentTimeEntries, setRecentTimeEntries] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Update time every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Fetch user data and recent time entries
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Get current user
+        const userData = await usersAPI.getCurrent();
+        setUser(userData);
+
+        // Get recent time entries (last 10)
+        const timeEntriesData = await timeEntriesAPI.list({
+          limit: 10,
+          skip: 0
+        });
+        setRecentTimeEntries(timeEntriesData);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   const formatTime = (date: Date) => {
@@ -44,11 +74,13 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200">
+              <Link href="/time" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200">
                 Start Timer
-              </button>
+              </Link>
               <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">JD</span>
+                <span className="text-white text-sm font-semibold">
+                  {user ? user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                </span>
               </div>
             </div>
           </div>
@@ -58,7 +90,9 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Good morning, John! 👋</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user ? user.name.split(' ')[0] : 'there'}! 👋
+          </h2>
           <p className="text-gray-600">Here's what's happening with your projects today.</p>
         </div>
 
@@ -134,53 +168,44 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <span className="text-indigo-600 font-semibold text-sm">AC</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">ACME Corp - Development</p>
-                    <p className="text-sm text-gray-500">Frontend React components • 2 hours ago</p>
-                  </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-indigo-600">2.5h</p>
-                  <p className="text-xs text-gray-500">$375.00</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                    <span className="text-emerald-600 font-semibold text-sm">TC</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">TechCorp - Consultation</p>
-                    <p className="text-sm text-gray-500">System architecture review • 5 hours ago</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-emerald-600">1.0h</p>
-                  <p className="text-xs text-gray-500">$180.00</p>
-                </div>
-              </div>
+              ) : recentTimeEntries.length > 0 ? (
+                recentTimeEntries.map((entry, index) => {
+                  const colors = ['indigo', 'emerald', 'purple', 'blue', 'amber'];
+                  const color = colors[index % colors.length];
+                  const projectInitials = entry.project_name ? entry.project_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'PR';
+                  const duration = Math.round(entry.duration_minutes / 60 * 10) / 10;
+                  const rate = entry.calculated_rate || 0;
+                  const amount = duration * rate;
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-purple-600 font-semibold text-sm">ST</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">StartupCo - MVP Build</p>
-                    <p className="text-sm text-gray-500">Database design & API endpoints • Yesterday</p>
-                  </div>
+                  return (
+                    <div key={entry.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}>
+                          <span className={`text-${color}-600 font-semibold text-sm`}>{projectInitials}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{entry.project_name || 'Unknown Project'} - {entry.task_name || 'Task'}</p>
+                          <p className="text-sm text-gray-500">
+                            {entry.notes || 'No description'} • {new Date(entry.start_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-lg font-semibold text-${color}-600`}>{duration}h</p>
+                        <p className="text-xs text-gray-500">${amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No time entries found. <Link href="/time" className="text-indigo-600 hover:text-indigo-700">Log your first entry →</Link>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-purple-600">4.0h</p>
-                  <p className="text-xs text-gray-500">$600.00</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 

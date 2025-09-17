@@ -18,10 +18,11 @@ export default function LoginPage() {
 
     try {
       const response = await authAPI.login(email, password);
-      
-      // Store the token
+
+      // Store the token and user info
       localStorage.setItem('auth_token', response.access_token);
-      
+      localStorage.setItem('user_info', JSON.stringify(response.user));
+
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (err: any) {
