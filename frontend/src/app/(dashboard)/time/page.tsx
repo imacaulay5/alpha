@@ -38,12 +38,12 @@ export default function TimePage() {
         setTimerStatus(timerData);
 
         // If timer is running, set tracking state
-        if (timerData.is_active) {
+        if (timerData.active) {
           setIsTracking(true);
-          setStartTime(new Date(timerData.start_time));
-          setSelectedProject(timerData.project_id);
-          setSelectedTask(timerData.task_id);
-          setNotes(timerData.notes || '');
+          setStartTime(new Date(timerData.timer.started_at));
+          setSelectedProject(timerData.timer.project_id);
+          setSelectedTask(timerData.timer.task_id);
+          setNotes(timerData.timer.notes || '');
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -206,7 +206,7 @@ export default function TimePage() {
               <option value="">Select a project...</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.client_name} - {project.name}
+                  {project.name} ({project.code})
                 </option>
               ))}
             </select>

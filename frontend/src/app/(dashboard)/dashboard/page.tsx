@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [user, setUser] = useState<any>(null);
   const [recentTimeEntries, setRecentTimeEntries] = useState<any[]>([]);
+  const [todayStats, setTodayStats] = useState({ hoursLogged: 0, entriesCount: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   // Handle logout
@@ -46,6 +47,19 @@ export default function DashboardPage() {
           skip: 0
         });
         setRecentTimeEntries(timeEntriesData);
+
+        // Calculate today's stats
+        const today = new Date().toISOString().split('T')[0];
+        const todayEntries = await timeEntriesAPI.list({
+          start_date: today + 'T00:00:00Z',
+          end_date: today + 'T23:59:59Z'
+        });
+
+        const totalMinutes = todayEntries.reduce((sum: number, entry: any) => sum + entry.duration_minutes, 0);
+        setTodayStats({
+          hoursLogged: Math.round(totalMinutes / 60 * 10) / 10,
+          entriesCount: todayEntries.length
+        });
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -74,46 +88,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-3xl font-bold text-gray-900">Alpha</h1>
-              <div className="hidden md:block h-6 w-px bg-gray-300"></div>
-              <div className="hidden md:block">
-                <p className="text-sm text-gray-500">{formatDate(currentTime)}</p>
-                <p className="text-lg font-semibold text-gray-900">{formatTime(currentTime)}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/time" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200">
-                Start Timer
-              </Link>
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">
-                    {user ? user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    console.log('Logout button clicked');
-                    handleLogout();
-                  }}
-                  className="text-gray-600 hover:text-gray-900 px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200"
-                  title="Logout"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -134,8 +109,8 @@ export default function DashboardPage() {
               <span className="text-sm text-green-600 font-medium bg-green-50 px-2 py-1 rounded-full">+12%</span>
             </div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Hours Today</h3>
-            <p className="text-3xl font-bold text-gray-900">7.5</p>
-            <p className="text-sm text-gray-600 mt-1">Billable hours logged</p>
+            <p className="text-3xl font-bold text-gray-900">{todayStats.hoursLogged}</p>
+            <p className="text-sm text-gray-600 mt-1">{todayStats.entriesCount} entries logged</p>
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
@@ -306,6 +281,5 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
