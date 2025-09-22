@@ -17,13 +17,18 @@ from app.db.models.time_entries import TimeEntry
 from app.db.models.expenses import Expense
 from app.db.models.tasks import Task
 from app.db.models.users import User
+from app.db.models.contractor_profiles import ContractorProfile
+from app.db.models.clients import Client
+from app.db.models.projects import Project
 
 
 class InvoiceService:
     """Service for creating and managing invoices."""
 
     def __init__(self):
-        pass
+        # Default rates and tax settings
+        self.default_hourly_rate = Decimal('100.00')
+        self.default_tax_rate = Decimal('0.00')  # 0% tax by default
 
     def create_invoice_lines_from_time_entries(
         self,
@@ -132,6 +137,136 @@ class InvoiceService:
 
         return expense_lines
 
+    def get_effective_rate(
+        self,
+        task_id: UUID,
+        user_id: UUID,
+        db: Session
+    ) -> Decimal:
+        """
+        Calculate the effective billing rate for a task/user combination.
+        Priority: Task rate > User contractor rate > Default rate
+        """
+        try:
+            # First, try to get task rate
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task and task.default_rate and float(task.default_rate) > 0:
+                return Decimal(str(task.default_rate))
+
+            # Second, try to get user contractor profile rate
+            contractor_profile = db.query(ContractorProfile).filter(
+                ContractorProfile.user_id == user_id,
+                ContractorProfile.active == True
+            ).first()
+            if contractor_profile and contractor_profile.default_rate and float(contractor_profile.default_rate) > 0:
+                return Decimal(str(contractor_profile.default_rate))
+
+            # Fall back to default rate
+            return self.default_hourly_rate
+
+        except Exception as e:
+            # Log error and return default rate
+            print(f"Error calculating rate for task {task_id}, user {user_id}: {e}")
+            return self.default_hourly_rate
+
+    def calculate_tax_amount(
+        self,
+        subtotal: Decimal,
+        client_id: UUID,
+        db: Session
+    ) -> Decimal:
+        """
+        Calculate tax amount based on client tax profile and subtotal.
+        """
+        try:
+            # Get client tax profile
+            client = db.query(Client).filter(Client.id == client_id).first()
+            if not client:
+                return Decimal('0.00')
+
+            # Check if client has custom tax profile
+            if client.default_tax_profile:
+                tax_profile = client.default_tax_profile
+                tax_rate = Decimal(str(tax_profile.get('rate', 0))) / Decimal('100')
+
+                # Apply exemptions or special rules
+                if tax_profile.get('exempt', False):
+                    return Decimal('0.00')
+
+                return subtotal * tax_rate
+
+            # Use default tax rate (currently 0%)
+            return subtotal * self.default_tax_rate
+
+        except Exception as e:
+            print(f"Error calculating tax for client {client_id}: {e}")
+            return Decimal('0.00')
+
+    def validate_invoice_creation_params(
+        self,
+        project_id: UUID,
+        start_date: date,
+        end_date: date,
+        db: Session
+    ) -> None:
+        """
+        Validate parameters for invoice creation.
+        Raises ValueError if validation fails.
+        """
+        # Validate date range
+        if start_date >= end_date:
+            raise ValueError("Start date must be before end date")
+
+        # Validate project exists
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            raise ValueError(f"Project with ID {project_id} not found")
+
+        # Check if project is active (if status field exists)
+        if hasattr(project, 'status') and project.status == 'INACTIVE':
+            raise ValueError(f"Cannot create invoice for inactive project: {project.name}")
+
+        # Validate date range is not too far in the future
+        if start_date > datetime.now().date():
+            raise ValueError("Cannot create invoice for future dates")
+
+    def get_currency_for_project(
+        self,
+        project_id: UUID,
+        db: Session
+    ) -> str:
+        """
+        Get the appropriate currency for a project.
+        Priority: Project currency > Client currency > Organization currency > USD
+        """
+        try:
+            # Get project and related data
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if not project:
+                return "USD"
+
+            # Check if project has currency (if field exists)
+            if hasattr(project, 'currency') and project.currency:
+                return project.currency
+
+            # Check client default currency
+            client = db.query(Client).filter(Client.id == project.client_id).first()
+            if client and hasattr(client, 'currency') and client.currency:
+                return client.currency
+
+            # Check organization currency
+            from app.db.models.organizations import Organization
+            org = db.query(Organization).filter(Organization.id == project.org_id).first()
+            if org and org.currency_code:
+                return org.currency_code
+
+            # Default to USD
+            return "USD"
+
+        except Exception as e:
+            print(f"Error getting currency for project {project_id}: {e}")
+            return "USD"
+
     def _group_time_entries(
         self,
         time_entries: List[TimeEntry],
@@ -188,12 +323,33 @@ class InvoiceService:
         total_duration = sum(entry.duration_minutes for entry in entries)
         total_hours = Decimal(total_duration) / Decimal('60')
 
-        # Get rate - for now, use a default rate
-        # TODO: Apply billing rules to determine the correct rate
-        default_rate = Decimal('100.00')  # $100/hour default
+        # Calculate effective rate - handle mixed rates when grouping spans multiple tasks/users
+        if len(set((entry.task_id, entry.user_id) for entry in entries)) == 1:
+            # All entries have same task and user - use single rate
+            first_entry = entries[0]
+            effective_rate = self.get_effective_rate(
+                task_id=first_entry.task_id,
+                user_id=first_entry.user_id,
+                db=db
+            )
+            amount = total_hours * effective_rate
+        else:
+            # Mixed tasks/users - calculate weighted amount based on individual rates
+            amount = Decimal('0.00')
+            effective_rate = Decimal('0.00')  # Will be calculated as weighted average
 
-        # Calculate amount
-        amount = total_hours * default_rate
+            for entry in entries:
+                entry_hours = Decimal(entry.duration_minutes) / Decimal('60')
+                entry_rate = self.get_effective_rate(
+                    task_id=entry.task_id,
+                    user_id=entry.user_id,
+                    db=db
+                )
+                amount += entry_hours * entry_rate
+
+            # Calculate weighted average rate for display
+            if total_hours > 0:
+                effective_rate = amount / total_hours
 
         # Create description based on grouping
         if grouping == "TASK":
@@ -237,7 +393,7 @@ class InvoiceService:
             kind=InvoiceLineKindEnum.TIME,
             description=description,
             quantity=total_hours,
-            unit_price=default_rate,
+            unit_price=effective_rate,
             amount=amount,
             meta=meta
         )
@@ -255,9 +411,12 @@ class InvoiceService:
         # Calculate subtotal
         subtotal = sum(Decimal(str(line.amount)) for line in lines)
 
-        # Calculate tax (TODO: implement proper tax calculation)
-        tax_rate = Decimal('0.00')  # No tax for now
-        tax_total = subtotal * tax_rate
+        # Calculate tax using client tax profile
+        tax_total = self.calculate_tax_amount(
+            subtotal=subtotal,
+            client_id=invoice.client_id,
+            db=db
+        )
 
         # Calculate total
         total = subtotal + tax_total

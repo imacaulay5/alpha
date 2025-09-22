@@ -153,6 +153,20 @@ async def create_invoice(
             detail="Invalid date range format. Use YYYY-MM-DD."
         )
 
+    # Validate invoice creation parameters
+    try:
+        invoice_service.validate_invoice_creation_params(
+            project_id=invoice_data.project_id,
+            start_date=start_date,
+            end_date=end_date,
+            db=db
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
     # Generate invoice number
     invoice_count = db.query(Invoice).filter(Invoice.org_id == current_user.org_id).count()
     invoice_number = f"INV-{(invoice_count + 1):04d}"
@@ -160,6 +174,12 @@ async def create_invoice(
     # Calculate due date (30 days from issue date by default)
     issue_date = datetime.now().date()
     due_date = issue_date + timedelta(days=30)
+
+    # Get appropriate currency for this project
+    currency = invoice_service.get_currency_for_project(
+        project_id=invoice_data.project_id,
+        db=db
+    )
 
     # Create invoice
     invoice = Invoice(
@@ -174,7 +194,7 @@ async def create_invoice(
         subtotal=0,
         tax_total=0,
         total=0,
-        currency="USD"
+        currency=currency
     )
 
     db.add(invoice)
