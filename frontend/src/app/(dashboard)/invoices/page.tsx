@@ -11,6 +11,8 @@ export default function InvoicesPage() {
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [selectedTab, setSelectedTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showEditInvoice, setShowEditInvoice] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
 
   const [newInvoice, setNewInvoice] = useState({
     project_id: '',
@@ -133,6 +135,58 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleEditInvoice = (invoice: any) => {
+    setEditingInvoice({
+      ...invoice,
+      issue_date: invoice.issue_date ? invoice.issue_date.split('T')[0] : '',
+      due_date: invoice.due_date ? invoice.due_date.split('T')[0] : ''
+    });
+    setShowEditInvoice(true);
+  };
+
+  const handleUpdateInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await invoicesAPI.update(editingInvoice.id, {
+        issue_date: editingInvoice.issue_date,
+        due_date: editingInvoice.due_date,
+        status: editingInvoice.status,
+        notes: editingInvoice.notes
+      });
+      setShowEditInvoice(false);
+      setEditingInvoice(null);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update invoice:', error);
+      alert('Failed to update invoice. Please try again.');
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string, invoiceNumber: string) => {
+    if (window.confirm(`Are you sure you want to delete the invoice "${invoiceNumber}"? This action cannot be undone.`)) {
+      try {
+        await invoicesAPI.delete(invoiceId);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete invoice:', error);
+        alert('Failed to delete invoice. Please try again.');
+      }
+    }
+  };
+
+  const handleViewInvoice = (invoice: any) => {
+    window.open(`/invoices/${invoice.id}`, '_blank');
+  };
+
+  const handleDownloadPDF = async (invoice: any) => {
+    try {
+      await invoicesAPI.generatePDF(invoice.id);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -239,20 +293,41 @@ export default function InvoicesPage() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 transition-colors" title="View">
+                        <button
+                          onClick={() => handleViewInvoice(invoice)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                          title="View"
+                        >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Download PDF">
+                        <button
+                          onClick={() => handleDownloadPDF(invoice)}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Download PDF"
+                        >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="More options">
+                        <button
+                          onClick={() => handleEditInvoice(invoice)}
+                          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Edit invoice"
+                        >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInvoice(invoice.id, invoice.number)}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete invoice"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
@@ -281,6 +356,91 @@ export default function InvoicesPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit Invoice Modal */}
+      {showEditInvoice && editingInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Invoice</h2>
+            <form onSubmit={handleUpdateInvoice} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+                <input
+                  type="text"
+                  value={editingInvoice.number}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editingInvoice.status}
+                  onChange={(e) => setEditingInvoice({...editingInvoice, status: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                >
+                  <option value="DRAFT">Draft</option>
+                  <option value="SENT">Sent</option>
+                  <option value="PAID">Paid</option>
+                  <option value="OVERDUE">Overdue</option>
+                  <option value="VOID">Void</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                  <input
+                    type="date"
+                    value={editingInvoice.issue_date}
+                    onChange={(e) => setEditingInvoice({...editingInvoice, issue_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={editingInvoice.due_date}
+                    onChange={(e) => setEditingInvoice({...editingInvoice, due_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editingInvoice.notes || ''}
+                  onChange={(e) => setEditingInvoice({...editingInvoice, notes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditInvoice(false);
+                    setEditingInvoice(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Update Invoice
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

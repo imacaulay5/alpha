@@ -12,6 +12,8 @@ export default function RulesPage() {
   const [showCreateRule, setShowCreateRule] = useState(false);
   const [selectedScope, setSelectedScope] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showEditRule, setShowEditRule] = useState(false);
+  const [editingRule, setEditingRule] = useState<any>(null);
 
   // Mock rules data - replace with actual API calls
   const mockRules = [
@@ -265,6 +267,61 @@ export default function RulesPage() {
     }
   };
 
+  const handleEditRule = (rule: any) => {
+    setEditingRule({...rule});
+    setShowEditRule(true);
+  };
+
+  const handleUpdateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await rulesAPI.update(editingRule.id, {
+        name: editingRule.name,
+        priority: editingRule.priority,
+        active: editingRule.active,
+        rule: {
+          conditions: editingRule.conditions,
+          effects: editingRule.effects
+        }
+      });
+      setShowEditRule(false);
+      setEditingRule(null);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update rule:', error);
+      alert('Failed to update rule. Please try again.');
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string, ruleName: string) => {
+    if (window.confirm(`Are you sure you want to delete the rule "${ruleName}"? This action cannot be undone.`)) {
+      try {
+        await rulesAPI.delete(ruleId);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete rule:', error);
+        alert('Failed to delete rule. Please try again.');
+      }
+    }
+  };
+
+  const handleTestRule = async (rule: any) => {
+    try {
+      const result = await rulesAPI.test({
+        rule: rule,
+        context: {
+          day_of_week: new Date().toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+          time_of_day: new Date().toTimeString().slice(0, 5),
+          task_category: 'Development'
+        }
+      });
+      alert(`Rule test result: ${JSON.stringify(result, null, 2)}`);
+    } catch (error) {
+      console.error('Failed to test rule:', error);
+      alert('Failed to test rule. Please try again.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -368,17 +425,29 @@ export default function RulesPage() {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <button className="p-2 text-gray-400 hover:text-indigo-600 transition-colors" title="Test Rule">
+                    <button
+                      onClick={() => handleTestRule(rule)}
+                      className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                      title="Test Rule"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                       </svg>
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="Edit">
+                    <button
+                      onClick={() => handleEditRule(rule)}
+                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Delete">
+                    <button
+                      onClick={() => handleDeleteRule(rule.id, rule.name)}
+                      className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
@@ -408,6 +477,85 @@ export default function RulesPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit Rule Modal */}
+      {showEditRule && editingRule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Billing Rule</h2>
+            <form onSubmit={handleUpdateRule} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingRule.name}
+                  onChange={(e) => setEditingRule({...editingRule, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editingRule.priority}
+                    onChange={(e) => setEditingRule({...editingRule, priority: parseInt(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editingRule.active ? 'active' : 'inactive'}
+                    onChange={(e) => setEditingRule({...editingRule, active: e.target.value === 'active'})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Scope</label>
+                <select
+                  value={editingRule.scope}
+                  onChange={(e) => setEditingRule({...editingRule, scope: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                >
+                  <option value="ORG">Organization Wide</option>
+                  <option value="CLIENT">Specific Client</option>
+                  <option value="PROJECT">Specific Project</option>
+                  <option value="TASK">Specific Task</option>
+                  <option value="USER">Specific User</option>
+                </select>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditRule(false);
+                    setEditingRule(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Update Rule
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

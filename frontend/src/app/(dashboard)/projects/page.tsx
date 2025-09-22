@@ -11,6 +11,8 @@ export default function ProjectsPage() {
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
 
   // Form states
   const [newProject, setNewProject] = useState({
@@ -72,6 +74,40 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Failed to create client:', error);
       alert('Failed to create client. Please try again.');
+    }
+  };
+
+  const handleEditProject = (project: any) => {
+    setEditingProject({
+      ...project,
+      start_date: project.start_date ? project.start_date.split('T')[0] : '',
+      end_date: project.end_date ? project.end_date.split('T')[0] : ''
+    });
+    setShowEditProject(true);
+  };
+
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await projectsAPI.update(editingProject.id, editingProject);
+      setShowEditProject(false);
+      setEditingProject(null);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update project:', error);
+      alert('Failed to update project. Please try again.');
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (window.confirm(`Are you sure you want to delete the project "${projectName}"? This action cannot be undone.`)) {
+      try {
+        await projectsAPI.delete(projectId);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        alert('Failed to delete project. Please try again.');
+      }
     }
   };
 
@@ -212,12 +248,26 @@ export default function ProjectsPage() {
                       </div>
                       <div className="flex-shrink-0 ml-4">
                         <div className="flex items-center space-x-2">
-                          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditProject(project);
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Edit project"
+                          >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
-                          <button className="p-2 text-gray-400 hover:text-red-600 transition-colors">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProject(project.id, project.name);
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete project"
+                          >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
@@ -359,6 +409,120 @@ export default function ProjectsPage() {
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                   Create Project
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditProject && editingProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Project</h2>
+            <form onSubmit={handleUpdateProject} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingProject.name}
+                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project Code</label>
+                <input
+                  type="text"
+                  required
+                  value={editingProject.code}
+                  onChange={(e) => setEditingProject({...editingProject, code: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                <select
+                  required
+                  value={editingProject.client_id}
+                  onChange={(e) => setEditingProject({...editingProject, client_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                >
+                  <option value="">Select a client...</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Billing Model</label>
+                <select
+                  value={editingProject.billing_model}
+                  onChange={(e) => setEditingProject({...editingProject, billing_model: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                >
+                  <option value="HOURLY">Hourly</option>
+                  <option value="FIXED">Fixed Price</option>
+                  <option value="MILESTONE">Milestone</option>
+                  <option value="RETAINER">Retainer</option>
+                  <option value="T&M">Time & Materials</option>
+                  <option value="MIXED">Mixed</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={editingProject.start_date}
+                    onChange={(e) => setEditingProject({...editingProject, start_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={editingProject.end_date}
+                    onChange={(e) => setEditingProject({...editingProject, end_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editingProject.notes}
+                  onChange={(e) => setEditingProject({...editingProject, notes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditProject(false);
+                    setEditingProject(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Update Project
                 </button>
               </div>
             </form>
