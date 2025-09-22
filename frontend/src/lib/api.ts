@@ -302,6 +302,188 @@ export const timeEntriesAPI = {
   },
 };
 
+// Invoices API functions
+export const invoicesAPI = {
+  list: async (params: {
+    skip?: number;
+    limit?: number;
+    client_id?: string;
+    status?: string;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, value.toString());
+    });
+    const response = await api.get(`/v1/invoices/?${searchParams}`);
+    return response.data;
+  },
+
+  create: async (invoiceData: {
+    project_id: string;
+    range: {
+      from: string;
+      to: string;
+    };
+    include: {
+      time: boolean;
+      expenses: boolean;
+      fixed: boolean;
+      milestones?: boolean;
+    };
+    grouping: string;
+  }) => {
+    const response = await api.post('/v1/invoices/', invoiceData);
+    return response.data;
+  },
+
+  get: async (invoiceId: string) => {
+    const response = await api.get(`/v1/invoices/${invoiceId}`);
+    return response.data;
+  },
+
+  update: async (invoiceId: string, updates: any) => {
+    const response = await api.patch(`/v1/invoices/${invoiceId}`, updates);
+    return response.data;
+  },
+
+  delete: async (invoiceId: string) => {
+    const response = await api.delete(`/v1/invoices/${invoiceId}`);
+    return response.data;
+  },
+
+  generatePDF: async (invoiceId: string) => {
+    const response = await api.post(`/v1/invoices/${invoiceId}/pdf`);
+    return response.data;
+  },
+};
+
+// Approvals API functions
+export const approvalsAPI = {
+  list: async (params: {
+    type?: string;
+    status?: string;
+    skip?: number;
+    limit?: number;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, value.toString());
+    });
+    const response = await api.get(`/v1/approvals/?${searchParams}`);
+    return response.data;
+  },
+
+  decide: async (approvalId: string, decision: 'APPROVE' | 'REJECT', comment?: string) => {
+    const response = await api.post(`/v1/approvals/${approvalId}/decision`, {
+      decision,
+      comment,
+    });
+    return response.data;
+  },
+};
+
+// Rules API functions
+export const rulesAPI = {
+  list: async (params: {
+    scope?: string;
+    scope_id?: string;
+    skip?: number;
+    limit?: number;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, value.toString());
+    });
+    const response = await api.get(`/v1/rules/?${searchParams}`);
+    return response.data;
+  },
+
+  create: async (ruleData: {
+    name: string;
+    scope: string;
+    scope_id?: string;
+    priority: number;
+    rule: any;
+    active: boolean;
+  }) => {
+    const response = await api.post('/v1/rules/', ruleData);
+    return response.data;
+  },
+
+  get: async (ruleId: string) => {
+    const response = await api.get(`/v1/rules/${ruleId}`);
+    return response.data;
+  },
+
+  update: async (ruleId: string, ruleData: any) => {
+    const response = await api.patch(`/v1/rules/${ruleId}`, ruleData);
+    return response.data;
+  },
+
+  delete: async (ruleId: string) => {
+    const response = await api.delete(`/v1/rules/${ruleId}`);
+    return response.data;
+  },
+
+  test: async (context: any) => {
+    const response = await api.post('/v1/rules/test', { context });
+    return response.data;
+  },
+};
+
+// Expenses API functions
+export const expensesAPI = {
+  list: async (params: {
+    skip?: number;
+    limit?: number;
+    project_id?: string;
+    task_id?: string;
+    user_id?: string;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, value.toString());
+    });
+    const response = await api.get(`/v1/expenses/?${searchParams}`);
+    return response.data;
+  },
+
+  create: async (expenseData: {
+    project_id: string;
+    task_id: string;
+    amount: number;
+    currency: string;
+    receipt_url?: string;
+    notes?: string;
+  }) => {
+    const response = await api.post('/v1/expenses/', expenseData);
+    return response.data;
+  },
+
+  get: async (expenseId: string) => {
+    const response = await api.get(`/v1/expenses/${expenseId}`);
+    return response.data;
+  },
+
+  update: async (expenseId: string, expenseData: any) => {
+    const response = await api.patch(`/v1/expenses/${expenseId}`, expenseData);
+    return response.data;
+  },
+
+  delete: async (expenseId: string) => {
+    const response = await api.delete(`/v1/expenses/${expenseId}`);
+    return response.data;
+  },
+
+  submit: async (expenseId: string) => {
+    const response = await api.post(`/v1/expenses/${expenseId}/submit`);
+    return response.data;
+  },
+};
+
 // Health check
 export const healthAPI = {
   check: async () => {

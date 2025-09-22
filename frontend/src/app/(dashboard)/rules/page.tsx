@@ -297,14 +297,14 @@ export default function RulesPage() {
                 placeholder="Search rules..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
               />
             </div>
           </div>
           <select
             value={selectedScope}
             onChange={(e) => setSelectedScope(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
           >
             {scopeOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -428,7 +428,7 @@ export default function RulesPage() {
                       required
                       value={newRule.name}
                       onChange={(e) => setNewRule({...newRule, name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="e.g., Weekend Premium Rate"
                     />
                   </div>
@@ -439,7 +439,7 @@ export default function RulesPage() {
                       min="1"
                       value={newRule.priority}
                       onChange={(e) => setNewRule({...newRule, priority: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                     />
                   </div>
                 </div>
@@ -448,7 +448,7 @@ export default function RulesPage() {
                   <select
                     value={newRule.scope}
                     onChange={(e) => setNewRule({...newRule, scope: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                   >
                     <option value="ORG">Organization Wide</option>
                     <option value="CLIENT">Specific Client</option>
@@ -472,7 +472,7 @@ export default function RulesPage() {
                         ...newRule,
                         conditions: {...newRule.conditions, task_category: e.target.value}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="e.g., Development, Onsite"
                     />
                   </div>
@@ -485,7 +485,7 @@ export default function RulesPage() {
                         ...newRule,
                         conditions: {...newRule.conditions, location: e.target.value}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="e.g., Client site, Remote"
                     />
                   </div>
@@ -503,7 +503,7 @@ export default function RulesPage() {
                           time_of_day: {...newRule.conditions.time_of_day, from: e.target.value}
                         }
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                     />
                   </div>
                   <div>
@@ -518,7 +518,7 @@ export default function RulesPage() {
                           time_of_day: {...newRule.conditions.time_of_day, to: e.target.value}
                         }
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                     />
                   </div>
                 </div>
@@ -538,7 +538,7 @@ export default function RulesPage() {
                         ...newRule,
                         effects: {...newRule.effects, rate: {...newRule.effects.rate, value: e.target.value}}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="150.00"
                     />
                   </div>
@@ -552,7 +552,7 @@ export default function RulesPage() {
                         ...newRule,
                         effects: {...newRule.effects, overtime_multiplier: {...newRule.effects.overtime_multiplier, value: e.target.value}}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="1.5"
                     />
                   </div>
@@ -567,7 +567,7 @@ export default function RulesPage() {
                         ...newRule,
                         effects: {...newRule.effects, min_increment_min: {...newRule.effects.min_increment_min, value: e.target.value}}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="15"
                     />
                   </div>
@@ -581,7 +581,7 @@ export default function RulesPage() {
                         ...newRule,
                         effects: {...newRule.effects, materials_markup_pct: {...newRule.effects.materials_markup_pct, value: e.target.value}}
                       })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
                       placeholder="10"
                     />
                   </div>

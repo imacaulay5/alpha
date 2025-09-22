@@ -201,7 +201,7 @@ export default function TimePage() {
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
               disabled={isTracking || isLoading}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50 text-gray-900 bg-white"
             >
               <option value="">Select a project...</option>
               {projects.map((project) => (
@@ -220,7 +220,7 @@ export default function TimePage() {
               value={selectedTask}
               onChange={(e) => setSelectedTask(e.target.value)}
               disabled={isTracking || isLoading || !selectedProject}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50 text-gray-900 bg-white"
             >
               <option value="">Select a task...</option>
               {tasks.map((task) => (
@@ -240,7 +240,7 @@ export default function TimePage() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             disabled={isTracking}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:opacity-50 text-gray-900 placeholder-gray-500 bg-white"
             rows={3}
             placeholder="Add notes about what you're working on..."
           />

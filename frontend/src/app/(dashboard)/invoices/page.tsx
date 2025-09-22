@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectsAPI, clientsAPI, timeEntriesAPI } from '@/lib/api';
+import { projectsAPI, clientsAPI, invoicesAPI } from '@/lib/api';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -11,49 +11,6 @@ export default function InvoicesPage() {
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [selectedTab, setSelectedTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Mock invoice data - replace with actual API calls
-  const mockInvoices = [
-    {
-      id: '1',
-      number: 'INV-001',
-      client_name: 'ACME Corporation',
-      project_name: 'Website Redesign',
-      issue_date: '2024-01-15',
-      due_date: '2024-02-14',
-      status: 'SENT',
-      subtotal: 4500.00,
-      tax_total: 360.00,
-      total: 4860.00,
-      currency: 'USD'
-    },
-    {
-      id: '2',
-      number: 'INV-002',
-      client_name: 'TechCorp Inc',
-      project_name: 'Mobile App Development',
-      issue_date: '2024-01-20',
-      due_date: '2024-02-19',
-      status: 'DRAFT',
-      subtotal: 7200.00,
-      tax_total: 576.00,
-      total: 7776.00,
-      currency: 'USD'
-    },
-    {
-      id: '3',
-      number: 'INV-003',
-      client_name: 'StartupXYZ',
-      project_name: 'Consulting Services',
-      issue_date: '2024-01-10',
-      due_date: '2024-02-09',
-      status: 'PAID',
-      subtotal: 2800.00,
-      tax_total: 224.00,
-      total: 3024.00,
-      currency: 'USD'
-    }
-  ];
 
   const [newInvoice, setNewInvoice] = useState({
     project_id: '',
@@ -72,13 +29,14 @@ export default function InvoicesPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [projectsData, clientsData] = await Promise.all([
+      const [projectsData, clientsData, invoicesData] = await Promise.all([
         projectsAPI.list(),
-        clientsAPI.list()
+        clientsAPI.list(),
+        invoicesAPI.list()
       ]);
       setProjects(projectsData);
       setClients(clientsData);
-      setInvoices(mockInvoices); // Replace with actual invoice API call
+      setInvoices(invoicesData);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -140,8 +98,25 @@ export default function InvoicesPage() {
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // TODO: Implement invoice creation API call
-      console.log('Creating invoice:', newInvoice);
+      const invoiceData = {
+        project_id: newInvoice.project_id,
+        range: {
+          from: newInvoice.start_date,
+          to: newInvoice.end_date
+        },
+        include: {
+          time: newInvoice.include_time,
+          expenses: newInvoice.include_expenses,
+          fixed: newInvoice.include_fixed
+        },
+        grouping: newInvoice.grouping
+      };
+
+      await invoicesAPI.create(invoiceData);
+
+      // Refresh invoices list
+      await fetchData();
+
       setShowCreateInvoice(false);
       setNewInvoice({
         project_id: '',
@@ -154,6 +129,7 @@ export default function InvoicesPage() {
       });
     } catch (error) {
       console.error('Failed to create invoice:', error);
+      alert('Failed to create invoice. Please try again.');
     }
   };
 
@@ -211,7 +187,7 @@ export default function InvoicesPage() {
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder-gray-500 bg-white"
           />
         </div>
       </div>
@@ -320,7 +296,7 @@ export default function InvoicesPage() {
                   required
                   value={newInvoice.project_id}
                   onChange={(e) => setNewInvoice({...newInvoice, project_id: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                 >
                   <option value="">Select a project...</option>
                   {projects.map((project) => (
@@ -339,7 +315,7 @@ export default function InvoicesPage() {
                     required
                     value={newInvoice.start_date}
                     onChange={(e) => setNewInvoice({...newInvoice, start_date: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                   />
                 </div>
                 <div>
@@ -349,7 +325,7 @@ export default function InvoicesPage() {
                     required
                     value={newInvoice.end_date}
                     onChange={(e) => setNewInvoice({...newInvoice, end_date: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                   />
                 </div>
               </div>
@@ -392,7 +368,7 @@ export default function InvoicesPage() {
                 <select
                   value={newInvoice.grouping}
                   onChange={(e) => setNewInvoice({...newInvoice, grouping: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
                 >
                   <option value="TASK">Task</option>
                   <option value="USER">User</option>
