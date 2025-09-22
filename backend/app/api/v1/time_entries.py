@@ -7,10 +7,12 @@ from app.db.models.projects import Project
 from app.db.models.tasks import Task
 from app.db.models.users import User
 from app.core.deps import get_current_active_user, require_manager
+from app.services.pricing_engine import pricing_engine
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from decimal import Decimal
 import uuid
 
 router = APIRouter()
@@ -68,12 +70,73 @@ class TimeEntryListResponse(BaseModel):
     task_name: Optional[str] = None
     user_name: Optional[str] = None
 
+    # Calculated pricing fields
+    calculated_rate: Optional[float] = None
+    calculated_amount: Optional[float] = None
+
     class Config:
         from_attributes = True
 
 class ApprovalRequest(BaseModel):
     decision: str  # "APPROVE" or "REJECT"
     comment: Optional[str] = None
+
+def _calculate_time_entry_pricing(time_entry: TimeEntry, db: Session) -> Dict[str, Any]:
+    """Calculate pricing for a time entry using the pricing engine."""
+
+    # Build context for pricing engine
+    context = {
+        "org_id": str(time_entry.org_id),
+        "client_id": str(time_entry.project.client_id) if time_entry.project else None,
+        "project_id": str(time_entry.project_id),
+        "task_id": str(time_entry.task_id),
+        "contractor_user_id": str(time_entry.user_id),
+        "start_at": time_entry.start_at.isoformat() if time_entry.start_at else None,
+        "duration_minutes": time_entry.duration_minutes,
+        "source": time_entry.source.value if time_entry.source else None,
+        "geo": time_entry.geo
+    }
+
+    # Add task category if available
+    if time_entry.task:
+        context["task_category"] = time_entry.task.category
+
+    try:
+        # Evaluate pricing using the pricing engine
+        pricing_result = pricing_engine.evaluate_pricing(context, db)
+
+        # Calculate amount based on duration and rate
+        hours = Decimal(time_entry.duration_minutes) / Decimal('60')
+        rate = Decimal(str(pricing_result['rate']))
+        amount = hours * rate
+
+        return {
+            "calculated_rate": float(rate),
+            "calculated_amount": float(amount),
+            "pricing_context": context,
+            "applied_rules": pricing_result.get("applied_rules", [])
+        }
+
+    except Exception as e:
+        # Fallback to base rate if pricing engine fails
+        print(f"Error calculating pricing for time entry {time_entry.id}: {e}")
+
+        # Get base rate
+        base_rate = pricing_engine.get_base_rate(
+            task_id=time_entry.task_id,
+            user_id=time_entry.user_id,
+            db=db
+        )
+
+        hours = Decimal(time_entry.duration_minutes) / Decimal('60')
+        amount = hours * base_rate
+
+        return {
+            "calculated_rate": float(base_rate),
+            "calculated_amount": float(amount),
+            "pricing_context": context,
+            "applied_rules": []
+        }
 
 @router.get("/", response_model=List[TimeEntryListResponse])
 async def list_time_entries(
@@ -137,7 +200,9 @@ async def list_time_entries(
             created_at=getattr(entry, 'created_at', None),
             project_name=project.name if project else None,
             task_name=task.name if task else None,
-            user_name=user.name if user else None
+            user_name=user.name if user else None,
+            calculated_rate=float(entry.calculated_rate) if entry.calculated_rate else None,
+            calculated_amount=float(entry.calculated_amount) if entry.calculated_amount else None
         ))
 
     return result
@@ -203,6 +268,23 @@ async def create_time_entry(
     )
 
     db.add(db_time_entry)
+    db.flush()  # Get the ID before calculating pricing
+
+    # Load related objects for pricing calculation
+    db_time_entry.project = project
+    db_time_entry.task = task
+
+    # Calculate pricing using the pricing engine
+    try:
+        pricing_data = _calculate_time_entry_pricing(db_time_entry, db)
+        db_time_entry.calculated_rate = Decimal(str(pricing_data["calculated_rate"]))
+        db_time_entry.calculated_amount = Decimal(str(pricing_data["calculated_amount"]))
+        db_time_entry.pricing_context = pricing_data["pricing_context"]
+        db_time_entry.applied_rules = pricing_data["applied_rules"]
+    except Exception as e:
+        print(f"Warning: Failed to calculate pricing for time entry: {e}")
+        # Continue without pricing data
+
     db.commit()
     db.refresh(db_time_entry)
     return db_time_entry
@@ -537,6 +619,16 @@ async def stop_timer(
 
     active_timer.end_at = end_time
     active_timer.duration_minutes = duration_minutes
+
+    # Calculate pricing now that we have duration
+    try:
+        pricing_data = _calculate_time_entry_pricing(active_timer, db)
+        active_timer.calculated_rate = Decimal(str(pricing_data["calculated_rate"]))
+        active_timer.calculated_amount = Decimal(str(pricing_data["calculated_amount"]))
+        active_timer.pricing_context = pricing_data["pricing_context"]
+        active_timer.applied_rules = pricing_data["applied_rules"]
+    except Exception as e:
+        print(f"Warning: Failed to calculate pricing for timer stop: {e}")
 
     db.commit()
     db.refresh(active_timer)

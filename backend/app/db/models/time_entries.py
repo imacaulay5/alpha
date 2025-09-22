@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import Column, String, ForeignKey, Integer, DateTime, Text, Enum as SQLEnum, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -35,7 +35,14 @@ class TimeEntry(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     geo = Column(JSONB, nullable=True)
     source = Column(SQLEnum(SourceEnum), nullable=False, default=SourceEnum.WEB)
-    
+
+    # Calculated pricing fields
+    calculated_rate = Column(Numeric(12, 2), nullable=True)
+    calculated_amount = Column(Numeric(12, 2), nullable=True)
+    pricing_context = Column(JSONB, nullable=True)  # Store context used for pricing
+    applied_rules = Column(JSONB, nullable=True)    # Store rules that were applied
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
     organization = relationship("Organization")
     user = relationship("User", foreign_keys=[user_id])
     project = relationship("Project")

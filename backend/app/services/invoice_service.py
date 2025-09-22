@@ -141,19 +141,24 @@ class InvoiceService:
         self,
         task_id: UUID,
         user_id: UUID,
-        db: Session
+        db: Session,
+        time_entry: Optional[TimeEntry] = None
     ) -> Decimal:
         """
         Calculate the effective billing rate for a task/user combination.
-        Priority: Task rate > User contractor rate > Default rate
+        Priority: Time entry calculated rate > Task rate > User contractor rate > Default rate
         """
         try:
-            # First, try to get task rate
+            # First, use calculated rate from time entry if available
+            if time_entry and time_entry.calculated_rate:
+                return Decimal(str(time_entry.calculated_rate))
+
+            # Second, try to get task rate
             task = db.query(Task).filter(Task.id == task_id).first()
             if task and task.default_rate and float(task.default_rate) > 0:
                 return Decimal(str(task.default_rate))
 
-            # Second, try to get user contractor profile rate
+            # Third, try to get user contractor profile rate
             contractor_profile = db.query(ContractorProfile).filter(
                 ContractorProfile.user_id == user_id,
                 ContractorProfile.active == True
@@ -323,33 +328,28 @@ class InvoiceService:
         total_duration = sum(entry.duration_minutes for entry in entries)
         total_hours = Decimal(total_duration) / Decimal('60')
 
-        # Calculate effective rate - handle mixed rates when grouping spans multiple tasks/users
-        if len(set((entry.task_id, entry.user_id) for entry in entries)) == 1:
-            # All entries have same task and user - use single rate
-            first_entry = entries[0]
-            effective_rate = self.get_effective_rate(
-                task_id=first_entry.task_id,
-                user_id=first_entry.user_id,
-                db=db
-            )
-            amount = total_hours * effective_rate
-        else:
-            # Mixed tasks/users - calculate weighted amount based on individual rates
-            amount = Decimal('0.00')
-            effective_rate = Decimal('0.00')  # Will be calculated as weighted average
+        # Calculate effective rate using pre-calculated rates from time entries
+        amount = Decimal('0.00')
 
-            for entry in entries:
+        # Use calculated amounts from time entries if available
+        for entry in entries:
+            if entry.calculated_amount:
+                amount += Decimal(str(entry.calculated_amount))
+            else:
+                # Fallback to rate calculation
                 entry_hours = Decimal(entry.duration_minutes) / Decimal('60')
                 entry_rate = self.get_effective_rate(
                     task_id=entry.task_id,
                     user_id=entry.user_id,
-                    db=db
+                    db=db,
+                    time_entry=entry
                 )
                 amount += entry_hours * entry_rate
 
-            # Calculate weighted average rate for display
-            if total_hours > 0:
-                effective_rate = amount / total_hours
+        # Calculate weighted average rate for display
+        effective_rate = Decimal('0.00')
+        if total_hours > 0:
+            effective_rate = amount / total_hours
 
         # Create description based on grouping
         if grouping == "TASK":
