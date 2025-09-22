@@ -11,6 +11,7 @@ class Client(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
+    address = Column(String(500), nullable=True)
     billing_contact_email = Column(String(255), nullable=False)
     terms = Column(Text, nullable=True)
     default_tax_profile = Column(JSONB, nullable=True)

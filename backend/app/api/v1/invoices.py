@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.db.session import get_db
@@ -7,11 +8,14 @@ from app.db.models.projects import Project
 from app.db.models.clients import Client
 from app.db.models.users import User
 from app.core.deps import get_current_active_user, require_manager
+from app.services.pdf_service import pdf_service
+from app.services.invoice_service import invoice_service
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from uuid import UUID
 import uuid
+import io
 
 router = APIRouter()
 
@@ -139,9 +143,23 @@ async def create_invoice(
             detail="Project not found"
         )
 
+    # Parse date range
+    try:
+        start_date = datetime.strptime(invoice_data.range["from"], "%Y-%m-%d").date()
+        end_date = datetime.strptime(invoice_data.range["to"], "%Y-%m-%d").date()
+    except (KeyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date range format. Use YYYY-MM-DD."
+        )
+
     # Generate invoice number
     invoice_count = db.query(Invoice).filter(Invoice.org_id == current_user.org_id).count()
     invoice_number = f"INV-{(invoice_count + 1):04d}"
+
+    # Calculate due date (30 days from issue date by default)
+    issue_date = datetime.now().date()
+    due_date = issue_date + timedelta(days=30)
 
     # Create invoice
     invoice = Invoice(
@@ -150,8 +168,8 @@ async def create_invoice(
         client_id=project.client_id,
         project_id=project.id,
         number=invoice_number,
-        issue_date=datetime.now().date(),
-        due_date=datetime.now().date(),  # TODO: Calculate based on terms
+        issue_date=issue_date,
+        due_date=due_date,
         status=InvoiceStatusEnum.DRAFT,
         subtotal=0,
         tax_total=0,
@@ -162,25 +180,52 @@ async def create_invoice(
     db.add(invoice)
     db.flush()
 
-    # TODO: Generate invoice lines from time entries and expenses
-    # This would involve:
-    # 1. Querying time entries in the date range
-    # 2. Querying expenses in the date range
-    # 3. Applying billing rules to calculate rates
-    # 4. Creating invoice lines grouped by the specified grouping
+    # Generate invoice lines from time entries and expenses
+    all_lines = []
 
-    # For now, create a placeholder line
-    line = InvoiceLine(
-        id=uuid.uuid4(),
-        invoice_id=invoice.id,
-        kind=InvoiceLineKindEnum.TIME,
-        description=f"Services for {project.name}",
-        quantity=1,
-        unit_price=0,
-        amount=0,
-        meta={}
-    )
-    db.add(line)
+    # Add time entry lines if requested
+    if invoice_data.include.get("time", False):
+        time_lines = invoice_service.create_invoice_lines_from_time_entries(
+            invoice=invoice,
+            project_id=invoice_data.project_id,
+            start_date=start_date,
+            end_date=end_date,
+            grouping=invoice_data.grouping,
+            db=db
+        )
+        all_lines.extend(time_lines)
+
+    # Add expense lines if requested
+    if invoice_data.include.get("expenses", False):
+        expense_lines = invoice_service.create_invoice_lines_from_expenses(
+            invoice=invoice,
+            project_id=invoice_data.project_id,
+            start_date=start_date,
+            end_date=end_date,
+            db=db
+        )
+        all_lines.extend(expense_lines)
+
+    # If no lines were created, add a placeholder
+    if not all_lines:
+        line = InvoiceLine(
+            id=uuid.uuid4(),
+            invoice_id=invoice.id,
+            kind=InvoiceLineKindEnum.TIME,
+            description=f"Services for {project.name} ({start_date} to {end_date})",
+            quantity=1,
+            unit_price=0,
+            amount=0,
+            meta={"note": "No billable time entries or expenses found for this period"}
+        )
+        all_lines.append(line)
+
+    # Add all lines to database
+    for line in all_lines:
+        db.add(line)
+
+    # Calculate invoice totals
+    invoice_service.calculate_invoice_totals(invoice, db)
 
     db.commit()
     db.refresh(invoice)
@@ -311,3 +356,44 @@ async def delete_invoice(
     db.commit()
 
     return {"message": "Invoice deleted successfully"}
+
+@router.post("/{invoice_id}/pdf")
+async def generate_invoice_pdf(
+    invoice_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download a PDF for the specified invoice.
+    """
+    # Get the invoice
+    invoice = db.query(Invoice).filter(
+        Invoice.id == invoice_id,
+        Invoice.org_id == current_user.org_id
+    ).first()
+
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found"
+        )
+
+    try:
+        # Generate PDF
+        pdf_bytes = pdf_service.generate_invoice_pdf(invoice, db)
+
+        # Create a streaming response
+        pdf_stream = io.BytesIO(pdf_bytes)
+
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=invoice_{invoice.number}.pdf"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF: {str(e)}"
+        )
