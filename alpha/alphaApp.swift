@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct alphaApp: App {
+    @StateObject private var appState = AppState()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppCoordinator()
+                .environmentObject(appState)
+                .task {
+                    await appState.checkAuthStatus()
+                }
         }
     }
 }
