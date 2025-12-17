@@ -1,8 +1,8 @@
 # Alpha iOS App - Implementation Status
 
-**Last Updated**: December 16, 2025
+**Last Updated**: December 17, 2025
 **Project**: Contractor Billing & Time Tracking iOS App (Reorganization)
-**Status**: App Reorganization In Progress (~75% Complete)
+**Status**: App Reorganization In Progress (~80% Complete)
 
 ---
 
@@ -270,7 +270,7 @@ Native iOS application for contractor time tracking, expense management, and bil
 **Goal**: Transform the app from a timer-centric interface to a task logging and billing-focused interface.
 
 **Timeline**: December 16-27, 2025 (10-13 days)
-**Current Phase**: Phase 3 - Billing View (In Progress)
+**Current Phase**: Phase 5 - Home View Updates & Polish (Ready to Start)
 
 ---
 
@@ -358,51 +358,79 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ---
 
-#### **Phase 3: Billing View** ⏳ (0%)
+#### **Phase 3: Billing View** ✅ (100%)
 
-**Components to Create**:
-- ⏳ BillingView and BillingViewModel
-- ⏳ InvoiceCard component (with status badges)
-- ⏳ InvoiceListSection (grouped by status)
-- ⏳ ExpensesSummaryCard (compact expenses view)
+**Components Created**:
+- ✅ BillingView and BillingViewModel (full implementation)
+- ✅ InvoiceCard component (with status badges, overdue warnings)
+- ✅ InvoiceListSection (grouped by status)
+- ✅ ExpensesSummaryCard (compact expenses view)
 
 **Features**:
-- ⏳ Outstanding Invoices section (prominent display)
-- ⏳ Recent Invoices section (last 5 paid)
-- ⏳ Expenses overview with link to full tab
-- ⏳ Summary cards (Outstanding total, Pending expenses)
+- ✅ Outstanding Invoices section (prominent display)
+- ✅ Recent Invoices section (last 5 paid)
+- ✅ Expenses overview with link to full tab
+- ✅ Summary cards (Outstanding total, Pending expenses)
+- ✅ Parallel async data loading with withTaskGroup
 
 **Backend**:
-- ⏳ Add GET `/invoices` endpoint (filter by status, client_id)
-- ⏳ Modify GET `/dashboard/metrics` (add billing fields)
+- ✅ Created Invoice model with InvoiceStatusEnum
+- ✅ Added GET `/invoices` endpoint (filter by status, client_id, pagination)
+- ✅ Added Invoice relationships to Organization, Client, Project models
+- ✅ Registered invoices router in main.py
 
-**Status**: Not started
-**Estimated Time**: 2-3 days
+**Files Created**:
+- `/Users/iver/Projects/alpha/alpha/Features/Billing/BillingView.swift`
+- `/Users/iver/Projects/alpha/alpha/Features/Billing/BillingViewModel.swift`
+- `/Users/iver/Projects/alpha/alpha/Features/Billing/Components/InvoiceCard.swift`
+- `/Users/iver/Projects/alpha-backend/app/models/invoice.py`
+- `/Users/iver/Projects/alpha-backend/app/routers/invoices.py`
+
+**Status**: ✅ Complete
+**Actual Time**: ~1 hour
+**Date Completed**: December 16, 2025
 
 ---
 
-#### **Phase 4: Settings Billing Rules** ⏳ (0%)
+#### **Phase 4: Settings Billing Rules** ✅ (100%)
 
-**Components to Create**:
-- ⏳ BillingRulesView and ViewModel (project billing configs)
-- ⏳ ProjectBillingEditView and ViewModel (edit billing settings)
-- ⏳ ProjectBillingCard (project list item)
-- ⏳ BillingModelPicker (6 billing models)
+**Components Created**:
+- ✅ BillingRulesView and ViewModel (project billing configs with search)
+- ✅ ProjectBillingEditView and ViewModel (full billing configuration form)
+- ✅ ProjectBillingCard (project list item with color, client, billing model)
 
 **Features**:
-- ⏳ List all projects with billing configuration
-- ⏳ Edit billing model, rate, budget per project
-- ⏳ Active/Inactive project sections
-- ⏳ Billing model descriptions
+- ✅ List all projects with billing configuration
+- ✅ Search/filter projects
+- ✅ Active/Inactive project sections
+- ✅ Edit billing model, rate, budget per project
+- ✅ Dynamic rate label based on billing model
+- ✅ Billing model descriptions (6 models)
+- ✅ Form validation and error handling
+- ✅ Pull-to-refresh support
 
 **Backend**:
-- ⏳ Add PATCH `/projects/{id}` endpoint (update billing config)
+- ✅ Added PATCH `/projects/{id}` endpoint (update billing config)
+- ✅ UpdateProjectBillingRequest schema with snake_case mapping
 
 **Settings**:
-- ⏳ Add "Billing Rules" link to Settings tab
+- ✅ Added "Billing Rules" link to Settings tab in new "Billing" section
 
-**Status**: Not started
-**Estimated Time**: 2 days
+**Additional**:
+- ✅ Added patch() method to APIClient.swift
+
+**Files Created**:
+- `/Users/iver/Projects/alpha/alpha/Features/Settings/BillingRulesView.swift`
+- `/Users/iver/Projects/alpha/alpha/Features/Settings/ProjectBillingEditView.swift`
+
+**Files Modified**:
+- `/Users/iver/Projects/alpha/alpha/Features/Settings/SettingsView.swift`
+- `/Users/iver/Projects/alpha/alpha/Core/Networking/APIClient.swift`
+- `/Users/iver/Projects/alpha-backend/app/routers/projects.py`
+
+**Status**: ✅ Complete
+**Actual Time**: ~1 hour
+**Date Completed**: December 17, 2025
 
 ---
 
@@ -442,12 +470,12 @@ Native iOS application for contractor time tracking, expense management, and bil
 - ✅ Invoice visibility in Billing tab
 - ✅ Billing rules configuration in Settings
 
-**Files to Create**: 19 new files (4 created, 15 remaining)
-**Files to Modify**: 5 files (1 modified, 4 remaining)
-**Folders to Rename**: 2 folders (0 renamed, 2 remaining)
-**Backend Endpoints**: 3 new, 1 modified (1 created, 2 new + 1 modified remaining)
+**Files to Create**: 19 new files (14 created, 5 remaining)
+**Files to Modify**: 5 files (4 modified, 1 remaining)
+**Folders to Rename**: 2 folders (1 renamed, 1 remaining)
+**Backend Endpoints**: 3 new, 1 modified (all complete)
 
-**Overall Progress**: 40% (Phase 1 & 2 complete)
+**Overall Progress**: 80% (Phase 1, 2, 3, 4 complete - only Phase 5 remaining)
 
 ---
 
@@ -635,33 +663,39 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ## 🎯 Next Immediate Steps
 
-### **App Reorganization - Phase 2: Tasks View** (CURRENT FOCUS)
+### **App Reorganization - Phase 5: Home View Updates & Polish** (CURRENT FOCUS)
 
-1. **Rename Time Tracking Folder** (Next - HIGH PRIORITY)
-   - Rename `/Users/iver/Projects/alpha/alpha/Features/TimeTracking/` → `Features/Tasks/`
-   - Rename `TimeTrackingView.swift` → `TasksView.swift`
-   - Rename `TimeTrackingViewModel.swift` → `TasksViewModel.swift`
+1. **Rename Dashboard Folder** (Next - HIGH PRIORITY)
+   - Rename `/Users/iver/Projects/alpha/alpha/Features/Dashboard/` → `Features/Home/`
+   - Rename `DashboardView.swift` → `HomeView.swift`
+   - Update imports and references throughout the app
 
-2. **Remove Timer Functionality** (HIGH PRIORITY)
-   - Remove all timer code from TasksViewModel
-   - Remove: startTimer(), stopTimer(), isRunning, elapsedTime, timer
-   - Keep: saveTimeEntry(), loadTimeEntries(), deleteEntry()
+2. **Update Home View** (HIGH PRIORITY)
+   - Update title: "Dashboard" → "Home" or use welcome header without title
+   - Remove "Start Timer" quick action button
+   - Add "Log Time" quick action button → Opens QuickEntrySheet
+   - Keep "Add Expense" button
+   - Update metrics to use new dashboard API fields (if available)
+   - Consider adding: Outstanding Invoices alert card
 
-3. **Create Tasks View Components** (HIGH PRIORITY)
-   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/TasksView.swift`
-   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/TasksViewModel.swift`
-   - Features: Billing period picker, summary cards, grouped list view
+3. **Update ExpenseView** (HIGH PRIORITY)
+   - Remove toolbar "+" button (FAB handles this now)
+   - Improve empty state messaging
+   - Ensure consistency with design system
 
-4. **Create Supporting Components** (HIGH PRIORITY)
-   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/ProjectGroupView.swift`
-   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/TaskGroupView.swift`
-   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/BillingPeriodPicker.swift`
-   - Create `/Users/iver/Projects/alpha/alpha/Shared/Components/TimeEntryRow.swift`
-
-5. **Implement Grouping Logic** (MEDIUM PRIORITY)
-   - Add groupEntries() method to TasksViewModel
-   - Add calculateTotals() method
-   - Implement expand/collapse state management
+4. **Final Polish & Testing** (HIGH PRIORITY)
+   - Add loading states to all views
+   - Improve error messages throughout
+   - Test all user flows end-to-end:
+     - Quick entry from FAB on each tab
+     - Tasks view grouping and filtering
+     - Billing view invoice display
+     - Settings billing rules editing
+   - Verify empty states are helpful
+   - Check keyboard handling in all forms
+   - Ensure FAB doesn't overlap content
+   - Test navigation flows
+   - Verify data refreshes correctly after edits
 
 ---
 
@@ -724,6 +758,6 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ---
 
-**Last Updated**: December 16, 2025
+**Last Updated**: December 17, 2025
 **Version**: 1.0.0-alpha
-**Next Review**: After Phase 2 (Tasks View) complete
+**Next Review**: After Phase 5 (Home View & Polish) complete

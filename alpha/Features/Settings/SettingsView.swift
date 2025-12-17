@@ -79,6 +79,13 @@ struct SettingsView: View {
                     }
                 }
 
+                // Billing Section
+                Section("Billing") {
+                    NavigationLink(destination: BillingRulesView()) {
+                        Label("Billing Rules", systemImage: "chart.bar.doc.horizontal")
+                    }
+                }
+
                 // Data Section
                 Section("Data") {
                     NavigationLink(destination: Text("Export Data")) {
