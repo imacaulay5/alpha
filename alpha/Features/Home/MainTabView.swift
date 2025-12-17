@@ -26,7 +26,7 @@ struct MainTabView: View {
         ZStack {
             // Tab View
             TabView(selection: $selectedTab) {
-                DashboardView()
+                HomeView()
                     .tabItem {
                         Label("Home", systemImage: "house.fill")
                     }

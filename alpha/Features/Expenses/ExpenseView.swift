@@ -102,7 +102,7 @@ struct ExpenseView: View {
                                     .font(.alphaBody)
                                     .foregroundColor(.alphaSecondaryText)
 
-                                Text("Tap + to add your first expense")
+                                Text("Tap the + button to add your first expense")
                                     .font(.alphaBodySmall)
                                     .foregroundColor(.alphaTertiaryText)
                             }
@@ -118,16 +118,6 @@ struct ExpenseView: View {
             .background(Color.alphaGroupedBackground)
             .navigationTitle("Expenses")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        viewModel.showingAddExpense = true
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.alphaPrimary)
-                    }
-                }
-            }
             .refreshable {
                 await viewModel.loadExpenses()
             }

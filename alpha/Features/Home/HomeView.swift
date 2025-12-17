@@ -1,5 +1,5 @@
 //
-//  DashboardView.swift
+//  HomeView.swift
 //  alpha
 //
 //  Created by Claude Code on 11/25/25.
@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-struct DashboardMetrics: Codable {
+struct HomeMetrics: Codable {
     let hoursToday: Double
     let hoursWeek: Double
     let pendingExpensesCount: Int
@@ -23,9 +23,9 @@ struct DashboardMetrics: Codable {
 }
 
 @MainActor
-class DashboardViewModel: ObservableObject {
+class HomeViewModel: ObservableObject {
     @Published var isLoading = false
-    @Published var metrics: DashboardMetrics?
+    @Published var metrics: HomeMetrics?
     @Published var errorMessage: String?
 
     private let apiClient = APIClient.shared
@@ -44,9 +44,10 @@ class DashboardViewModel: ObservableObject {
     }
 }
 
-struct DashboardView: View {
+struct HomeView: View {
     @EnvironmentObject var appState: AppState
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel = HomeViewModel()
+    @State private var showingQuickEntry = false
 
     var body: some View {
         NavigationStack {
@@ -122,11 +123,11 @@ struct DashboardView: View {
 
                         VStack(spacing: 12) {
                             QuickActionButton(
-                                title: "Start Timer",
-                                icon: "timer",
+                                title: "Log Time",
+                                icon: "clock.fill",
                                 color: .alphaPrimary
                             ) {
-                                // TODO: Navigate to time tracking
+                                showingQuickEntry = true
                             }
 
                             QuickActionButton(
@@ -145,13 +146,16 @@ struct DashboardView: View {
                 .padding(.vertical)
             }
             .background(Color.alphaGroupedBackground)
-            .navigationTitle("Dashboard")
+            .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await viewModel.loadData()
             }
             .task {
                 await viewModel.loadData()
+            }
+            .sheet(isPresented: $showingQuickEntry) {
+                QuickEntrySheet(isPresented: $showingQuickEntry)
             }
         }
     }
@@ -230,8 +234,8 @@ struct QuickActionButton: View {
 
 // MARK: - Preview
 
-#Preview("Dashboard") {
-    DashboardView()
+#Preview("Home") {
+    HomeView()
         .environmentObject({
             let state = AppState()
             state.isAuthenticated = true
