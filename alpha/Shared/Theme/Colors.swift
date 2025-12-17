@@ -11,10 +11,10 @@ extension Color {
     // MARK: - Primary Colors
 
     /// Primary brand color (from Assets.xcassets)
-    static let alphaPrimary = Color("Primary")
+    static let alphaPrimary = Color("BrandPrimary")
 
     /// Secondary brand color (from Assets.xcassets)
-    static let alphaSecondary = Color("Secondary")
+    static let alphaSecondary = Color("BrandSecondary")
 
     /// Accent color for UI elements (from Assets.xcassets)
     static let alphaAccent = Color("AccentColor")

@@ -32,7 +32,7 @@ struct MainTabView: View {
                     }
                     .tag(0)
 
-                TimeTrackingView()
+                TasksView()
                     .tabItem {
                         Label("Tasks", systemImage: "list.bullet.clipboard")
                     }

@@ -270,7 +270,7 @@ Native iOS application for contractor time tracking, expense management, and bil
 **Goal**: Transform the app from a timer-centric interface to a task logging and billing-focused interface.
 
 **Timeline**: December 16-27, 2025 (10-13 days)
-**Current Phase**: Phase 1 - Foundation & Quick Entry (100% ✅)
+**Current Phase**: Phase 3 - Billing View (In Progress)
 
 ---
 
@@ -325,26 +325,36 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ---
 
-#### **Phase 2: Tasks View** ⏳ (0%)
+#### **Phase 2: Tasks View** ✅ (100%)
 
 **Folder Restructure**:
-- ⏳ Rename `Features/TimeTracking/` → `Features/Tasks/`
-- ⏳ Remove timer functionality completely
+- ✅ Renamed `Features/TimeTracking/` → `Features/Tasks/`
+- ✅ Removed timer functionality completely (no more running timer UI)
 
-**Components to Create**:
-- ⏳ TasksView and TasksViewModel (grouped time entries)
-- ⏳ ProjectGroupView (project header with totals)
-- ⏳ TaskGroupView (task subtotals)
-- ⏳ BillingPeriodPicker (date range selector)
+**Components Created**:
+- ✅ TasksView and TasksViewModel (grouped time entries)
+- ✅ ProjectGroupView (project header with totals)
+- ✅ TaskGroupView (task subtotals)
+- ✅ BillingPeriodPicker (This Week, This Month, Last Month, Custom)
+- ✅ TimeEntryRow (with swipe-to-delete)
+- ✅ SummaryCard component
 
 **Features**:
-- ⏳ Group time entries by Project → Task
-- ⏳ Expand/collapse functionality
-- ⏳ Summary cards (Total Hours, Total Billable, Projects Count)
-- ⏳ Pull-to-refresh support
+- ✅ Group time entries by Project → Task → Individual Entries
+- ✅ Expand/collapse functionality for projects and tasks
+- ✅ Summary cards (Total Hours, Total Billable, Projects Count)
+- ✅ Pull-to-refresh support
+- ✅ Automatic totals calculation at all levels
+- ✅ Color-coded projects with project color badge
+- ✅ Empty state with helpful message
 
-**Status**: Not started
-**Estimated Time**: 2-3 days
+**Additional**:
+- ✅ Renamed color assets: Primary → BrandPrimary, Secondary → BrandSecondary
+- ✅ Fixed asset naming conflicts with SwiftUI built-in colors
+
+**Status**: ✅ Complete
+**Actual Time**: ~1 hour
+**Date Completed**: December 16, 2025
 
 ---
 
@@ -437,7 +447,7 @@ Native iOS application for contractor time tracking, expense management, and bil
 **Folders to Rename**: 2 folders (0 renamed, 2 remaining)
 **Backend Endpoints**: 3 new, 1 modified (1 created, 2 new + 1 modified remaining)
 
-**Overall Progress**: 20% (Phase 1 complete)
+**Overall Progress**: 40% (Phase 1 & 2 complete)
 
 ---
 

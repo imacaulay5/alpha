@@ -32,7 +32,7 @@ enum InvoiceStatus: String, Codable {
 
 struct Invoice: Codable, Identifiable {
     let id: String
-    let organizationId: String
+    let organizationId: String?
     let clientId: String
     let projectId: String?
     let invoiceNumber: String
@@ -46,8 +46,8 @@ struct Invoice: Codable, Identifiable {
     let status: InvoiceStatus
     let notes: String?
     let paidAt: Date?
-    let createdAt: Date
-    let updatedAt: Date
+    let createdAt: Date?
+    let updatedAt: Date?
 
     // Populated by backend joins
     let client: Client?
