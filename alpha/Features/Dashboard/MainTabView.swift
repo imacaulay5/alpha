@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @State private var showingQuickEntry = false
 
     init() {
         // Configure tab bar appearance to fix the selected icon issue
@@ -22,32 +23,51 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DashboardView()
-                .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar.fill")
-                }
-                .tag(0)
+        ZStack {
+            // Tab View
+            TabView(selection: $selectedTab) {
+                DashboardView()
+                    .tabItem {
+                        Label("Home", systemImage: "house.fill")
+                    }
+                    .tag(0)
 
-            TimeTrackingView()
-                .tabItem {
-                    Label("Time", systemImage: "timer")
-                }
-                .tag(1)
+                TimeTrackingView()
+                    .tabItem {
+                        Label("Tasks", systemImage: "list.bullet.clipboard")
+                    }
+                    .tag(1)
 
-            ExpenseView()
-                .tabItem {
-                    Label("Expenses", systemImage: "dollarsign.circle.fill")
-                }
-                .tag(2)
+                BillingView()
+                    .tabItem {
+                        Label("Billing", systemImage: "doc.text.fill")
+                    }
+                    .tag(2)
 
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: "gearshape.fill")
+                    }
+                    .tag(3)
+            }
+            .tint(.alphaPrimary)
+
+            // Floating Action Button (appears on all tabs)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    FloatingActionButton {
+                        showingQuickEntry = true
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
                 }
-                .tag(3)
+            }
         }
-        .tint(.alphaPrimary)
+        .sheet(isPresented: $showingQuickEntry) {
+            QuickEntrySheet(isPresented: $showingQuickEntry)
+        }
     }
 }
 

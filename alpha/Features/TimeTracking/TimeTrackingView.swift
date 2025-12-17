@@ -26,12 +26,13 @@ class TimeTrackingViewModel: ObservableObject {
 
     func startTimer() {
         isRunning = true
-        startTime = Date()
+        let timerStartTime = Date()
+        startTime = timerStartTime
 
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self, let startTime = self.startTime else { return }
+            guard let self = self else { return }
             Task { @MainActor in
-                self.elapsedTime = Date().timeIntervalSince(startTime)
+                self.elapsedTime = Date().timeIntervalSince(timerStartTime)
             }
         }
     }

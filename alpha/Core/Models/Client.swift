@@ -7,9 +7,9 @@
 
 import Foundation
 
-struct Client: Codable, Identifiable {
+struct Client: Codable, Identifiable, Hashable {
     let id: String
-    let organizationId: String
+    let organizationId: String?
     let name: String
     let email: String?
     let phone: String?
@@ -20,9 +20,9 @@ struct Client: Codable, Identifiable {
     let country: String?
     let contactName: String?
     let notes: String?
-    let isActive: Bool
-    let createdAt: Date
-    let updatedAt: Date
+    let isActive: Bool?
+    let createdAt: Date?
+    let updatedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -61,5 +61,23 @@ extension Client {
         isActive: true,
         createdAt: Date(),
         updatedAt: Date()
+    )
+
+    static let previewMinimal = Client(
+        id: "client_1",
+        organizationId: nil,
+        name: "Tech Startup Inc",
+        email: nil,
+        phone: nil,
+        address: nil,
+        city: nil,
+        state: nil,
+        zipCode: nil,
+        country: nil,
+        contactName: nil,
+        notes: nil,
+        isActive: nil,
+        createdAt: nil,
+        updatedAt: nil
     )
 }

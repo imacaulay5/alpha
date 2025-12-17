@@ -1,8 +1,8 @@
 # Alpha iOS App - Implementation Status
 
-**Last Updated**: November 28, 2025
-**Project**: Contractor Billing & Time Tracking iOS App
-**Status**: MVP In Progress (~70% Complete)
+**Last Updated**: December 16, 2025
+**Project**: Contractor Billing & Time Tracking iOS App (Reorganization)
+**Status**: App Reorganization In Progress (~75% Complete)
 
 ---
 
@@ -263,6 +263,184 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ---
 
+## 🔄 APP REORGANIZATION (IN PROGRESS)
+
+### Major Restructure: Timer-Focused → Task Logging/Billing-Focused
+
+**Goal**: Transform the app from a timer-centric interface to a task logging and billing-focused interface.
+
+**Timeline**: December 16-27, 2025 (10-13 days)
+**Current Phase**: Phase 1 - Foundation & Quick Entry (100% ✅)
+
+---
+
+#### **Phase 1: Foundation & Quick Entry** ✅ (100%)
+
+**Components to Create**:
+- ✅ FloatingActionButton component (global FAB on all tabs)
+- ✅ QuickEntrySheet with ViewModel (quick time entry form)
+- ⏳ TimeEntryRow component (will be created in Phase 2)
+
+**Tab Restructure**:
+- ✅ Update MainTabView: Dashboard → Home, Time → Tasks, Add Billing tab
+- ✅ Add FAB overlay to MainTabView (ZStack wrapper)
+- ✅ Update tab icons and labels
+
+**Assets & Branding**:
+- ✅ Configure Assets.xcassets with green primary color
+- ✅ Create Primary.colorset (light: RGB 52, 199, 89 / dark: RGB 60, 209, 102)
+- ✅ Create Secondary.colorset (complementary green)
+- ✅ Update AccentColor.colorset to match Primary
+- ✅ Update FAB and tab tint to use .alphaPrimary
+
+**Backend**:
+- ✅ Add GET `/time-entries` endpoint with filtering (start_date, end_date, project_id)
+
+**Files Created**:
+- `/Users/iver/Projects/alpha/alpha/Shared/Components/FloatingActionButton.swift`
+- `/Users/iver/Projects/alpha/alpha/Shared/Components/QuickEntrySheet.swift`
+- `/Users/iver/Projects/alpha/alpha/Shared/Components/QuickEntryViewModel.swift`
+- `/Users/iver/Projects/alpha/alpha/Features/Billing/BillingView.swift` (placeholder)
+- `/Users/iver/Projects/alpha/alpha/Assets.xcassets/Primary.colorset/Contents.json`
+- `/Users/iver/Projects/alpha/alpha/Assets.xcassets/Secondary.colorset/Contents.json`
+
+**Files Modified**:
+- `/Users/iver/Projects/alpha/alpha/Features/Dashboard/MainTabView.swift`
+- `/Users/iver/Projects/alpha/alpha/Assets.xcassets/AccentColor.colorset/Contents.json`
+- `/Users/iver/Projects/alpha-backend/app/routers/time_entries.py`
+- `/Users/iver/Projects/alpha/alpha/Core/Models/Project.swift` (added Hashable)
+- `/Users/iver/Projects/alpha/alpha/Core/Models/Client.swift` (added Hashable)
+- `/Users/iver/Projects/alpha/alpha/Core/Models/Task.swift` (added Hashable)
+
+**Bugs Fixed**:
+- ✅ Missing Combine import in QuickEntryViewModel
+- ✅ Hashable conformance for Picker tag values
+- ✅ Sendable closure warning in TimeTrackingView timer
+- ✅ Backend tags field mismatch
+- ✅ UI visibility issues with hardcoded blue colors
+
+**Status**: ✅ Complete
+**Actual Time**: ~2 hours
+**Date Completed**: December 16, 2025
+
+---
+
+#### **Phase 2: Tasks View** ⏳ (0%)
+
+**Folder Restructure**:
+- ⏳ Rename `Features/TimeTracking/` → `Features/Tasks/`
+- ⏳ Remove timer functionality completely
+
+**Components to Create**:
+- ⏳ TasksView and TasksViewModel (grouped time entries)
+- ⏳ ProjectGroupView (project header with totals)
+- ⏳ TaskGroupView (task subtotals)
+- ⏳ BillingPeriodPicker (date range selector)
+
+**Features**:
+- ⏳ Group time entries by Project → Task
+- ⏳ Expand/collapse functionality
+- ⏳ Summary cards (Total Hours, Total Billable, Projects Count)
+- ⏳ Pull-to-refresh support
+
+**Status**: Not started
+**Estimated Time**: 2-3 days
+
+---
+
+#### **Phase 3: Billing View** ⏳ (0%)
+
+**Components to Create**:
+- ⏳ BillingView and BillingViewModel
+- ⏳ InvoiceCard component (with status badges)
+- ⏳ InvoiceListSection (grouped by status)
+- ⏳ ExpensesSummaryCard (compact expenses view)
+
+**Features**:
+- ⏳ Outstanding Invoices section (prominent display)
+- ⏳ Recent Invoices section (last 5 paid)
+- ⏳ Expenses overview with link to full tab
+- ⏳ Summary cards (Outstanding total, Pending expenses)
+
+**Backend**:
+- ⏳ Add GET `/invoices` endpoint (filter by status, client_id)
+- ⏳ Modify GET `/dashboard/metrics` (add billing fields)
+
+**Status**: Not started
+**Estimated Time**: 2-3 days
+
+---
+
+#### **Phase 4: Settings Billing Rules** ⏳ (0%)
+
+**Components to Create**:
+- ⏳ BillingRulesView and ViewModel (project billing configs)
+- ⏳ ProjectBillingEditView and ViewModel (edit billing settings)
+- ⏳ ProjectBillingCard (project list item)
+- ⏳ BillingModelPicker (6 billing models)
+
+**Features**:
+- ⏳ List all projects with billing configuration
+- ⏳ Edit billing model, rate, budget per project
+- ⏳ Active/Inactive project sections
+- ⏳ Billing model descriptions
+
+**Backend**:
+- ⏳ Add PATCH `/projects/{id}` endpoint (update billing config)
+
+**Settings**:
+- ⏳ Add "Billing Rules" link to Settings tab
+
+**Status**: Not started
+**Estimated Time**: 2 days
+
+---
+
+#### **Phase 5: Home View Updates & Polish** ⏳ (0%)
+
+**Folder Restructure**:
+- ⏳ Rename `Features/Dashboard/` → `Features/Home/`
+
+**Updates**:
+- ⏳ Update HomeView (was DashboardView)
+  - Remove "Start Timer" quick action
+  - Add "Log Time" quick action
+  - Update metrics with new billing fields
+- ⏳ Update ExpenseView
+  - Remove toolbar "+" button (FAB handles this)
+  - Improve empty state
+- ⏳ Final polish
+  - Add loading states to all views
+  - Improve error messages
+  - Test all user flows
+  - Verify empty states
+  - Check keyboard handling
+
+**Status**: Not started
+**Estimated Time**: 1-2 days
+
+---
+
+### **Reorganization Summary**
+
+**What's Changing**:
+- ❌ Removing timer functionality
+- ✅ Adding floating '+' button (bottom-right, all tabs)
+- ✅ New tab structure: Home, Tasks, Billing, Settings
+- ✅ Primary function: Quick task logging
+- ✅ Comprehensive task view with grouping
+- ✅ Invoice visibility in Billing tab
+- ✅ Billing rules configuration in Settings
+
+**Files to Create**: 19 new files (4 created, 15 remaining)
+**Files to Modify**: 5 files (1 modified, 4 remaining)
+**Folders to Rename**: 2 folders (0 renamed, 2 remaining)
+**Backend Endpoints**: 3 new, 1 modified (1 created, 2 new + 1 modified remaining)
+
+**Overall Progress**: 20% (Phase 1 complete)
+
+---
+
 ## 📋 NOT STARTED / FUTURE PHASES
 
 ### Phase 7: AI Features Integration (0%)
@@ -410,10 +588,10 @@ Native iOS application for contractor time tracking, expense management, and bil
 3. **Mock Login**: Need to remove demo@alpha.com bypass and use real API
 
 ### Medium Priority
-4. **No API Integration**: ViewModels make no real API calls yet
-5. **No Error Handling**: Network errors not gracefully handled
-6. **No Loading States**: Missing loading indicators during API calls
-7. **Color Assets**: Primary/Secondary colors not configured in Assets.xcassets
+4. ~~**No API Integration**: ViewModels make no real API calls yet~~ ✅ RESOLVED
+5. ~~**No Error Handling**: Network errors not gracefully handled~~ ✅ RESOLVED
+6. ~~**No Loading States**: Missing loading indicators during API calls~~ ✅ RESOLVED
+7. ~~**Color Assets**: Primary/Secondary colors not configured in Assets.xcassets~~ ✅ RESOLVED
 8. **Info.plist**: Camera/photo permissions not added
 
 ### Low Priority
@@ -447,34 +625,48 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ## 🎯 Next Immediate Steps
 
+### **App Reorganization - Phase 2: Tasks View** (CURRENT FOCUS)
+
+1. **Rename Time Tracking Folder** (Next - HIGH PRIORITY)
+   - Rename `/Users/iver/Projects/alpha/alpha/Features/TimeTracking/` → `Features/Tasks/`
+   - Rename `TimeTrackingView.swift` → `TasksView.swift`
+   - Rename `TimeTrackingViewModel.swift` → `TasksViewModel.swift`
+
+2. **Remove Timer Functionality** (HIGH PRIORITY)
+   - Remove all timer code from TasksViewModel
+   - Remove: startTimer(), stopTimer(), isRunning, elapsedTime, timer
+   - Keep: saveTimeEntry(), loadTimeEntries(), deleteEntry()
+
+3. **Create Tasks View Components** (HIGH PRIORITY)
+   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/TasksView.swift`
+   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/TasksViewModel.swift`
+   - Features: Billing period picker, summary cards, grouped list view
+
+4. **Create Supporting Components** (HIGH PRIORITY)
+   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/ProjectGroupView.swift`
+   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/TaskGroupView.swift`
+   - Create `/Users/iver/Projects/alpha/alpha/Features/Tasks/Components/BillingPeriodPicker.swift`
+   - Create `/Users/iver/Projects/alpha/alpha/Shared/Components/TimeEntryRow.swift`
+
+5. **Implement Grouping Logic** (MEDIUM PRIORITY)
+   - Add groupEntries() method to TasksViewModel
+   - Add calculateTotals() method
+   - Implement expand/collapse state management
+
+---
+
+### **Previous Steps (Completed)**
+
 1. **Start Backend Server** ✅ (COMPLETE)
-   - ✅ Created Python 3.13 virtual environment
-   - ✅ Installed all dependencies
-   - ✅ Fixed Pydantic v2 compatibility issues
-   - ✅ Seeded database with test data
-   - ✅ Server running on http://localhost:8000
-   - ✅ Tested login endpoint successfully
+   - ✅ Backend running on http://localhost:8000
+   - ✅ Database seeded with test data
+   - ✅ All authentication endpoints functional
 
-2. **Connect iOS to Backend** (Next - HIGH PRIORITY)
-   - Remove mock login bypass in LoginView
-   - Update baseURL in APIClient (currently set to localhost:8000)
-   - Test login with real credentials (demo@alpha.com / demo123)
-
-3. **Complete API Integration** (High Priority)
-   - Wire up TimeTrackingViewModel
-   - Wire up ExpenseViewModel
-   - Wire up DashboardViewModel
-   - Test all CRUD operations
-
-4. **Build Add Forms** (Medium Priority)
-   - Manual time entry form
-   - Add expense form
-   - Form validation
-
-5. **Polish Critical Issues** (Low Priority)
-   - Fix tab bar icon issue
-   - Fix login button layout
-   - Add proper error handling
+2. **API Integration** ✅ (COMPLETE)
+   - ✅ LoginView connected to backend
+   - ✅ TimeTrackingViewModel connected
+   - ✅ ExpenseViewModel connected
+   - ✅ DashboardViewModel connected
 
 ---
 
@@ -522,6 +714,6 @@ Native iOS application for contractor time tracking, expense management, and bil
 
 ---
 
-**Last Updated**: November 28, 2025
+**Last Updated**: December 16, 2025
 **Version**: 1.0.0-alpha
-**Next Review**: After API integration complete
+**Next Review**: After Phase 2 (Tasks View) complete

@@ -8,16 +8,16 @@
 
 import Foundation
 
-struct ProjectTask: Codable, Identifiable {
+struct ProjectTask: Codable, Identifiable, Hashable {
     let id: String
-    let projectId: String
+    let projectId: String?
     let name: String
     let description: String?
     let rate: Double?
     let estimatedHours: Double?
-    let isActive: Bool
-    let createdAt: Date
-    let updatedAt: Date
+    let isActive: Bool?
+    let createdAt: Date?
+    let updatedAt: Date?
 
     // Populated by backend joins
     let project: Project?

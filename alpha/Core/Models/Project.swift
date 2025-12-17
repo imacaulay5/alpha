@@ -33,9 +33,9 @@ enum BillingModel: String, Codable {
     }
 }
 
-struct Project: Codable, Identifiable {
+struct Project: Codable, Identifiable, Hashable {
     let id: String
-    let organizationId: String
+    let organizationId: String?
     let clientId: String?
     let name: String
     let description: String?
@@ -44,11 +44,11 @@ struct Project: Codable, Identifiable {
     let budget: Double?
     let startDate: Date?
     let endDate: Date?
-    let isActive: Bool
+    let isActive: Bool?
     let color: String?
-    let tags: [String]?
-    let createdAt: Date
-    let updatedAt: Date
+    // let tags: [String]?  // TODO: Add when backend supports it
+    let createdAt: Date?
+    let updatedAt: Date?
 
     // Populated by backend joins
     let client: Client?
@@ -66,7 +66,7 @@ struct Project: Codable, Identifiable {
         case endDate = "end_date"
         case isActive = "is_active"
         case color
-        case tags
+        // case tags  // TODO: Add when backend supports it
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case client
@@ -114,7 +114,7 @@ extension Project {
         endDate: Date().addingTimeInterval(60 * 60 * 24 * 90), // 90 days
         isActive: true,
         color: "#007AFF",
-        tags: ["web", "design", "frontend"],
+        // tags: ["web", "design", "frontend"],
         createdAt: Date(),
         updatedAt: Date(),
         client: .preview
@@ -133,7 +133,7 @@ extension Project {
         endDate: Date().addingTimeInterval(60 * 60 * 24 * 180), // 180 days
         isActive: true,
         color: "#34C759",
-        tags: ["mobile", "ios", "android"],
+        // tags: ["mobile", "ios", "android"],
         createdAt: Date(),
         updatedAt: Date(),
         client: .preview
