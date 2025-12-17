@@ -70,7 +70,7 @@ struct SettingsView: View {
                         Label("Notifications", systemImage: "bell")
                     }
 
-                    NavigationLink(destination: Text("Display")) {
+                    NavigationLink(destination: DisplaySettingsView()) {
                         Label("Display", systemImage: "paintbrush")
                     }
 

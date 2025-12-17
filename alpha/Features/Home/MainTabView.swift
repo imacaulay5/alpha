@@ -61,7 +61,7 @@ struct MainTabView: View {
                         showingQuickEntry = true
                     }
                     .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 70) // Reduced padding
                 }
             }
         }

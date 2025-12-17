@@ -8,24 +8,52 @@
 import SwiftUI
 import Combine
 
-struct HomeMetrics: Codable {
-    let hoursToday: Double
-    let hoursWeek: Double
-    let pendingExpensesCount: Int
-    let pendingApprovalsCount: Int
+// MARK: - Data Models
+
+struct BusinessMetrics: Codable {
+    let totalRevenue: Double
+    let revenueChangePercentage: Double
+    let revenueTrend: TrendDirection
+
+    let outstandingRevenue: Double
+    let outstandingChangePercentage: Double
+    let outstandingTrend: TrendDirection
+
+    let billableHoursThisMonth: Double
+    let hoursChangePercentage: Double
+    let hoursTrend: TrendDirection
+
+    let pendingInvoices: Int
+    let invoicesChangePercentage: Double
+    let invoicesTrend: TrendDirection
 
     enum CodingKeys: String, CodingKey {
-        case hoursToday = "hours_today"
-        case hoursWeek = "hours_week"
-        case pendingExpensesCount = "pending_expenses_count"
-        case pendingApprovalsCount = "pending_approvals_count"
+        case totalRevenue = "total_revenue"
+        case revenueChangePercentage = "revenue_change_percentage"
+        case revenueTrend = "revenue_trend"
+        case outstandingRevenue = "outstanding_revenue"
+        case outstandingChangePercentage = "outstanding_change_percentage"
+        case outstandingTrend = "outstanding_trend"
+        case billableHoursThisMonth = "billable_hours_this_month"
+        case hoursChangePercentage = "hours_change_percentage"
+        case hoursTrend = "hours_trend"
+        case pendingInvoices = "pending_invoices"
+        case invoicesChangePercentage = "invoices_change_percentage"
+        case invoicesTrend = "invoices_trend"
     }
 }
+
+struct RecentActivity: Codable {
+    let activities: [ActivityItem]
+}
+
+// MARK: - View Model
 
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var isLoading = false
-    @Published var metrics: HomeMetrics?
+    @Published var businessMetrics: BusinessMetrics?
+    @Published var recentActivity: RecentActivity?
     @Published var errorMessage: String?
 
     private let apiClient = APIClient.shared
@@ -35,108 +63,149 @@ class HomeViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            metrics = try await apiClient.get("/dashboard/metrics")
+            // Load metrics and activity in parallel
+            async let metricsTask: BusinessMetrics = apiClient.get("/dashboard/business-metrics")
+            async let activityTask: RecentActivity = apiClient.get("/dashboard/recent-activity")
+
+            businessMetrics = try await metricsTask
+            recentActivity = try await activityTask
         } catch {
-            errorMessage = "Failed to load metrics: \(error.localizedDescription)"
+            errorMessage = "Failed to load dashboard data: \(error.localizedDescription)"
         }
 
         isLoading = false
     }
 }
 
+// MARK: - Home View
+
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
-    @State private var showingQuickEntry = false
+    @State private var showingCreateInvoice = false
+    @State private var showingQuickBill = false
+    @State private var showingQuickPayment = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Welcome Header
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Hello, \(appState.currentUser?.name.components(separatedBy: " ").first ?? "User")!")
-                                .font(.alphaHeadline)
-                                .foregroundColor(.alphaPrimaryText)
-
-                            Text("Here's your overview")
-                                .font(.alphaBodySmall)
-                                .foregroundColor(.alphaSecondaryText)
-                        }
-
-                        Spacer()
-
-                        // Avatar
-                        Circle()
-                            .fill(Color.alphaPrimary)
-                            .frame(width: 48, height: 48)
-                            .overlay {
-                                Text(appState.currentUser?.initials ?? "")
-                                    .font(.alphaTitle)
-                                    .foregroundColor(.white)
-                            }
-                    }
-                    .padding(.horizontal)
-
-                    // Metrics Grid
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 16) {
-                        MetricCard(
-                            title: "Hours Today",
-                            value: String(format: "%.1f", viewModel.metrics?.hoursToday ?? 0.0),
-                            icon: "timer",
-                            color: .blue
-                        )
-
-                        MetricCard(
-                            title: "Hours This Week",
-                            value: String(format: "%.1f", viewModel.metrics?.hoursWeek ?? 0.0),
-                            icon: "calendar",
-                            color: .green
-                        )
-
-                        MetricCard(
-                            title: "Pending Expenses",
-                            value: "\(viewModel.metrics?.pendingExpensesCount ?? 0)",
-                            icon: "dollarsign.circle",
-                            color: .orange
-                        )
-
-                        MetricCard(
-                            title: "Pending Approvals",
-                            value: "\(viewModel.metrics?.pendingApprovalsCount ?? 0)",
-                            icon: "checkmark.circle",
-                            color: .purple
-                        )
-                    }
-                    .padding(.horizontal)
-
                     // Quick Actions
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Quick Actions")
                             .font(.alphaTitle)
                             .foregroundColor(.alphaPrimaryText)
-                            .padding(.horizontal)
 
-                        VStack(spacing: 12) {
-                            QuickActionButton(
-                                title: "Log Time",
-                                icon: "clock.fill",
-                                color: .alphaPrimary
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            QuickActionCard(
+                                title: "Create Invoice",
+                                description: "Generate new invoice",
+                                icon: "doc.badge.plus",
+                                backgroundColor: Color.blue.opacity(0.1),
+                                iconColor: .blue
                             ) {
-                                showingQuickEntry = true
+                                showingCreateInvoice = true
                             }
 
-                            QuickActionButton(
-                                title: "Add Expense",
-                                icon: "plus.circle.fill",
-                                color: .alphaSecondary
+                            QuickActionCard(
+                                title: "Quick Bill",
+                                description: "Record expense quickly",
+                                icon: "receipt.fill",
+                                backgroundColor: Color.green.opacity(0.1),
+                                iconColor: .green
                             ) {
-                                // TODO: Navigate to expenses
+                                showingQuickBill = true
                             }
+
+                            QuickActionCard(
+                                title: "Quick Payment",
+                                description: "Record payment received",
+                                icon: "creditcard.fill",
+                                backgroundColor: Color.orange.opacity(0.1),
+                                iconColor: .orange
+                            ) {
+                                showingQuickPayment = true
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // Business Metrics
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Business Metrics")
+                            .font(.alphaTitle)
+                            .foregroundColor(.alphaPrimaryText)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            if let metrics = viewModel.businessMetrics {
+                                StatisticCard(
+                                    title: "Total Revenue",
+                                    value: formatCurrency(metrics.totalRevenue),
+                                    trend: metrics.revenueTrend,
+                                    changePercentage: metrics.revenueChangePercentage,
+                                    icon: "dollarsign.circle.fill",
+                                    accentColor: .alphaPrimary
+                                )
+
+                                StatisticCard(
+                                    title: "Outstanding Revenue",
+                                    value: formatCurrency(metrics.outstandingRevenue),
+                                    trend: metrics.outstandingTrend,
+                                    changePercentage: metrics.outstandingChangePercentage,
+                                    icon: "exclamationmark.circle.fill",
+                                    accentColor: .orange
+                                )
+
+                                StatisticCard(
+                                    title: "Billable Hours",
+                                    value: String(format: "%.1f", metrics.billableHoursThisMonth),
+                                    trend: metrics.hoursTrend,
+                                    changePercentage: metrics.hoursChangePercentage,
+                                    icon: "clock.fill",
+                                    accentColor: .purple
+                                )
+
+                                StatisticCard(
+                                    title: "Pending Invoices",
+                                    value: "\(metrics.pendingInvoices)",
+                                    trend: metrics.invoicesTrend,
+                                    changePercentage: metrics.invoicesChangePercentage,
+                                    icon: "doc.text.fill",
+                                    accentColor: .orange
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // Recent Activity
+                    if let activities = viewModel.recentActivity?.activities, !activities.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recent Activity")
+                                .font(.alphaTitle)
+                                .foregroundColor(.alphaPrimaryText)
+
+                            VStack(spacing: 0) {
+                                ForEach(activities) { activity in
+                                    ActivityItemRow(activity: activity)
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal)
+
+                                    if activity.id != activities.last?.id {
+                                        Divider()
+                                            .padding(.leading, 56)
+                                    }
+                                }
+                            }
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         }
                         .padding(.horizontal)
                     }
@@ -154,80 +223,27 @@ struct HomeView: View {
             .task {
                 await viewModel.loadData()
             }
-            .sheet(isPresented: $showingQuickEntry) {
-                QuickEntrySheet(isPresented: $showingQuickEntry)
+            .sheet(isPresented: $showingCreateInvoice) {
+                CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+            }
+            .sheet(isPresented: $showingQuickBill) {
+                QuickBillSheet(isPresented: $showingQuickBill)
+            }
+            .sheet(isPresented: $showingQuickPayment) {
+                QuickPaymentSheet(isPresented: $showingQuickPayment)
             }
         }
     }
-}
 
-// MARK: - Metric Card
+    // MARK: - Helper Functions
 
-struct MetricCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                    .font(.title3)
-
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.alphaDisplayLarge)
-                    .foregroundColor(.alphaPrimaryText)
-
-                Text(title)
-                    .font(.alphaLabel)
-                    .foregroundColor(.alphaSecondaryText)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.alphaCardBackground)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
-    }
-}
-
-// MARK: - Quick Action Button
-
-struct QuickActionButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .frame(width: 48, height: 48)
-                    .background(color)
-                    .cornerRadius(12)
-
-                Text(title)
-                    .font(.alphaBody)
-                    .foregroundColor(.alphaPrimaryText)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.body)
-                    .foregroundColor(.alphaSecondaryText)
-            }
-            .padding()
-            .background(Color.alphaCardBackground)
-            .cornerRadius(12)
+    private func formatCurrency(_ value: Double) -> String {
+        if value >= 1_000_000 {
+            return String(format: "$%.1fM", value / 1_000_000)
+        } else if value >= 1_000 {
+            return String(format: "$%.1fK", value / 1_000)
+        } else {
+            return String(format: "$%.0f", value)
         }
     }
 }
