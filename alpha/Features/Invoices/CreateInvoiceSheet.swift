@@ -12,12 +12,16 @@ struct CreateInvoiceSheet: View {
     @State private var selectedContact: Contact?
     @State private var contacts: [Contact] = []
     @State private var isLoadingContacts = false
-    @State private var amount = ""
+    @State private var lineItems: [LineItem] = [LineItem()]
     @State private var dueDate = Date()
     @State private var notes = ""
     @State private var showingNewContact = false
 
     private let apiClient = APIClient.shared
+
+    private var totalAmount: Double {
+        lineItems.reduce(0) { $0 + $1.total }
+    }
 
     var body: some View {
         NavigationStack {
@@ -59,10 +63,76 @@ struct CreateInvoiceSheet: View {
                     }
                 }
 
-                Section("Invoice Details") {
-                    TextField("Amount", text: $amount)
-                        .keyboardType(.decimalPad)
+                Section("Line Items") {
+                    ForEach($lineItems) { $item in
+                        VStack(spacing: 12) {
+                            TextField("Description", text: $item.description)
+                                .font(.alphaBody)
 
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Quantity")
+                                        .font(.alphaCaption)
+                                        .foregroundColor(.alphaSecondaryText)
+                                    TextField("0", value: $item.quantity, format: .number)
+                                        .keyboardType(.decimalPad)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Rate")
+                                        .font(.alphaCaption)
+                                        .foregroundColor(.alphaSecondaryText)
+                                    TextField("0.00", value: $item.rate, format: .currency(code: "USD"))
+                                        .keyboardType(.decimalPad)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Total")
+                                        .font(.alphaCaption)
+                                        .foregroundColor(.alphaSecondaryText)
+                                    Text(item.total, format: .currency(code: "USD"))
+                                        .font(.alphaBody)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.alphaPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.top, 6)
+                                }
+                            }
+
+                            if lineItems.count > 1 {
+                                Button(role: .destructive, action: {
+                                    removeLineItem(item)
+                                }) {
+                                    Label("Remove Item", systemImage: "trash")
+                                        .font(.alphaBodySmall)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+
+                    Button(action: addLineItem) {
+                        Label("Add Line Item", systemImage: "plus.circle.fill")
+                            .foregroundColor(.alphaPrimary)
+                    }
+
+                    HStack {
+                        Text("Total Amount")
+                            .font(.alphaBody)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(totalAmount, format: .currency(code: "USD"))
+                            .font(.alphaTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.alphaPrimary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                Section("Additional Details") {
                     DatePicker("Due Date", selection: $dueDate, displayedComponents: .date)
 
                     TextField("Notes (Optional)", text: $notes, axis: .vertical)
@@ -84,7 +154,7 @@ struct CreateInvoiceSheet: View {
                         // apiClient.post("/invoices", data: ...)
                         isPresented = false
                     }
-                    .disabled(selectedContact == nil || amount.isEmpty)
+                    .disabled(!isFormValid)
                 }
             }
             .task {
@@ -98,6 +168,22 @@ struct CreateInvoiceSheet: View {
                 })
             }
         }
+    }
+
+    private var isFormValid: Bool {
+        guard selectedContact != nil else { return false }
+        guard !lineItems.isEmpty else { return false }
+
+        // Check that at least one line item has a description and positive rate
+        return lineItems.contains { !$0.description.isEmpty && $0.rate > 0 }
+    }
+
+    private func addLineItem() {
+        lineItems.append(LineItem())
+    }
+
+    private func removeLineItem(_ item: LineItem) {
+        lineItems.removeAll { $0.id == item.id }
     }
 
     private func loadContacts() async {

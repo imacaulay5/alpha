@@ -12,6 +12,7 @@ struct MainTabView: View {
     @State private var showingQuickEntry = false
     @State private var showingCreateInvoice = false
     @State private var showingQuickPayment = false
+    @State private var showingQuickBill = false
 
     init() {
         // Configure tab bar appearance to fix the selected icon issue
@@ -54,31 +55,68 @@ struct MainTabView: View {
             }
             .tint(.alphaPrimary)
 
-            // Expandable Floating Action Button (appears on all tabs)
-            VStack {
-                Spacer()
-                HStack {
+            // Context-aware Floating Action Button
+            if selectedTab != 3 { // Hide on Settings tab
+                VStack {
                     Spacer()
-                    ExpandableFAB(
-                        primaryAction: {
-                            // Long press action - show quick entry
-                            showingQuickEntry = true
-                        },
-                        secondaryActions: [
-                            FABAction(
-                                icon: "doc.badge.plus",
-                                label: "Create Invoice",
-                                color: .blue,
-                                action: { showingCreateInvoice = true }
-                            ),
-                            FABAction(
-                                icon: "creditcard.fill",
-                                label: "Quick Payment",
-                                color: .orange,
-                                action: { showingQuickPayment = true }
+                    HStack {
+                        Spacer()
+
+                        switch selectedTab {
+                        case 0: // Home tab - Expandable menu
+                            ExpandableFAB(
+                                primaryAction: {
+                                    showingQuickEntry = true
+                                },
+                                secondaryActions: [
+                                    FABAction(
+                                        icon: "doc.badge.plus",
+                                        label: "Create Invoice",
+                                        color: .blue,
+                                        action: { showingCreateInvoice = true }
+                                    ),
+                                    FABAction(
+                                        icon: "creditcard.fill",
+                                        label: "Quick Payment",
+                                        color: .orange,
+                                        action: { showingQuickPayment = true }
+                                    )
+                                ]
                             )
-                        ]
-                    )
+
+                        case 1: // Tasks tab - Simple create invoice button
+                            Button(action: { showingCreateInvoice = true }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.alphaPrimary)
+                                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                    )
+                            }
+                            .accessibilityLabel("Create invoice")
+
+                        case 2: // Billing tab - Simple Quick Bill button
+                            Button(action: { showingQuickBill = true }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.alphaPrimary)
+                                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                    )
+                            }
+                            .accessibilityLabel("Quick Bill")
+
+                        default:
+                            EmptyView()
+                        }
+
+                    }
                     .padding(.trailing, 20)
                     .padding(.bottom, 70)
                 }
@@ -92,6 +130,9 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showingQuickPayment) {
             QuickPaymentSheet(isPresented: $showingQuickPayment)
+        }
+        .sheet(isPresented: $showingQuickBill) {
+            QuickBillSheet(isPresented: $showingQuickBill)
         }
     }
 }

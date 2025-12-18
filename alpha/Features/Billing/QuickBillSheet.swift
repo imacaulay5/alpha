@@ -12,9 +12,7 @@ struct QuickBillSheet: View {
     @State private var selectedVendor: Contact?
     @State private var contacts: [Contact] = []
     @State private var isLoadingContacts = false
-    @State private var amount = ""
-    @State private var description = ""
-    @State private var category = "OFFICE_SUPPLIES"
+    @State private var lineItems: [BillLineItem] = [BillLineItem()]
     @State private var expenseDate = Date()
     @State private var showingNewContact = false
 
@@ -30,6 +28,10 @@ struct QuickBillSheet: View {
         ("UTILITIES", "Utilities"),
         ("OTHER", "Other")
     ]
+
+    private var totalAmount: Double {
+        lineItems.reduce(0) { $0 + $1.amount }
+    }
 
     var body: some View {
         NavigationStack {
@@ -71,22 +73,69 @@ struct QuickBillSheet: View {
                     }
                 }
 
-                Section("Bill Details") {
-                    TextField("Amount", text: $amount)
-                        .keyboardType(.decimalPad)
+                Section("Line Items") {
+                    ForEach($lineItems) { $item in
+                        VStack(spacing: 12) {
+                            TextField("Description", text: $item.description)
+                                .font(.alphaBody)
 
-                    TextField("Description", text: $description)
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Amount")
+                                        .font(.alphaCaption)
+                                        .foregroundColor(.alphaSecondaryText)
+                                    TextField("0.00", value: $item.amount, format: .currency(code: "USD"))
+                                        .keyboardType(.decimalPad)
+                                        .textFieldStyle(.roundedBorder)
+                                }
 
-                    DatePicker("Date", selection: $expenseDate, displayedComponents: .date)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Category")
+                                        .font(.alphaCaption)
+                                        .foregroundColor(.alphaSecondaryText)
+                                    Picker("Category", selection: $item.category) {
+                                        ForEach(categories, id: \.0) { code, name in
+                                            Text(name).tag(code)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .tint(.alphaPrimary)
+                                }
+                            }
+
+                            if lineItems.count > 1 {
+                                Button(role: .destructive, action: {
+                                    removeLineItem(item)
+                                }) {
+                                    Label("Remove Item", systemImage: "trash")
+                                        .font(.alphaBodySmall)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+
+                    Button(action: addLineItem) {
+                        Label("Add Line Item", systemImage: "plus.circle.fill")
+                            .foregroundColor(.alphaPrimary)
+                    }
+
+                    HStack {
+                        Text("Total Amount")
+                            .font(.alphaBody)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(totalAmount, format: .currency(code: "USD"))
+                            .font(.alphaTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.alphaPrimary)
+                    }
+                    .padding(.vertical, 8)
                 }
 
-                Section("Category") {
-                    Picker("Category", selection: $category) {
-                        ForEach(categories, id: \.0) { code, name in
-                            Text(name).tag(code)
-                        }
-                    }
-                    .pickerStyle(.menu)
+                Section("Additional Details") {
+                    DatePicker("Date", selection: $expenseDate, displayedComponents: .date)
                 }
             }
             .navigationTitle("Quick Bill")
@@ -104,7 +153,7 @@ struct QuickBillSheet: View {
                         // apiClient.post("/expenses", data: ...)
                         isPresented = false
                     }
-                    .disabled(amount.isEmpty || description.isEmpty)
+                    .disabled(!isFormValid)
                 }
             }
             .task {
@@ -118,6 +167,22 @@ struct QuickBillSheet: View {
                 })
             }
         }
+    }
+
+    private var isFormValid: Bool {
+        guard selectedVendor != nil else { return false }
+        guard !lineItems.isEmpty else { return false }
+
+        // Check that at least one line item has a description and positive amount
+        return lineItems.contains { !$0.description.isEmpty && $0.amount > 0 }
+    }
+
+    private func addLineItem() {
+        lineItems.append(BillLineItem())
+    }
+
+    private func removeLineItem(_ item: BillLineItem) {
+        lineItems.removeAll { $0.id == item.id }
     }
 
     private func loadContacts() async {
