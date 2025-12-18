@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Activity Item Model
 
-struct ActivityItem: Codable, Identifiable {
+struct ActivityItem: Codable, Identifiable, Sendable {
     let id: Int
     let type: String
     let title: String

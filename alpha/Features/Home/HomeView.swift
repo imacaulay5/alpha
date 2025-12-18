@@ -10,7 +10,7 @@ import Combine
 
 // MARK: - Data Models
 
-struct BusinessMetrics: Codable {
+struct BusinessMetrics: Codable, Sendable {
     let totalRevenue: Double
     let revenueChangePercentage: Double
     let revenueTrend: TrendDirection
@@ -43,7 +43,7 @@ struct BusinessMetrics: Codable {
     }
 }
 
-struct RecentActivity: Codable {
+struct RecentActivity: Codable, Sendable {
     let activities: [ActivityItem]
 }
 
@@ -82,60 +82,14 @@ class HomeViewModel: ObservableObject {
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
-    @State private var showingCreateInvoice = false
-    @State private var showingQuickBill = false
-    @State private var showingQuickPayment = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Quick Actions
+                    // Welcome & Business Metrics
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Quick Actions")
-                            .font(.alphaTitle)
-                            .foregroundColor(.alphaPrimaryText)
-
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 16) {
-                            QuickActionCard(
-                                title: "Create Invoice",
-                                description: "Generate new invoice",
-                                icon: "doc.badge.plus",
-                                backgroundColor: Color.blue.opacity(0.1),
-                                iconColor: .blue
-                            ) {
-                                showingCreateInvoice = true
-                            }
-
-                            QuickActionCard(
-                                title: "Quick Bill",
-                                description: "Record expense quickly",
-                                icon: "receipt.fill",
-                                backgroundColor: Color.green.opacity(0.1),
-                                iconColor: .green
-                            ) {
-                                showingQuickBill = true
-                            }
-
-                            QuickActionCard(
-                                title: "Quick Payment",
-                                description: "Record payment received",
-                                icon: "creditcard.fill",
-                                backgroundColor: Color.orange.opacity(0.1),
-                                iconColor: .orange
-                            ) {
-                                showingQuickPayment = true
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-
-                    // Business Metrics
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Business Metrics")
+                        Text("Welcome back!")
                             .font(.alphaTitle)
                             .foregroundColor(.alphaPrimaryText)
 
@@ -144,40 +98,44 @@ struct HomeView: View {
                             GridItem(.flexible())
                         ], spacing: 16) {
                             if let metrics = viewModel.businessMetrics {
-                                StatisticCard(
+                                MetricCard(
                                     title: "Total Revenue",
                                     value: formatCurrency(metrics.totalRevenue),
                                     trend: metrics.revenueTrend,
                                     changePercentage: metrics.revenueChangePercentage,
                                     icon: "dollarsign.circle.fill",
-                                    accentColor: .alphaPrimary
+                                    backgroundColor: Color.green.opacity(0.1),
+                                    iconColor: .green
                                 )
 
-                                StatisticCard(
+                                MetricCard(
                                     title: "Outstanding Revenue",
                                     value: formatCurrency(metrics.outstandingRevenue),
                                     trend: metrics.outstandingTrend,
                                     changePercentage: metrics.outstandingChangePercentage,
                                     icon: "exclamationmark.circle.fill",
-                                    accentColor: .orange
+                                    backgroundColor: Color.orange.opacity(0.1),
+                                    iconColor: .orange
                                 )
 
-                                StatisticCard(
+                                MetricCard(
                                     title: "Billable Hours",
                                     value: String(format: "%.1f", metrics.billableHoursThisMonth),
                                     trend: metrics.hoursTrend,
                                     changePercentage: metrics.hoursChangePercentage,
                                     icon: "clock.fill",
-                                    accentColor: .purple
+                                    backgroundColor: Color.purple.opacity(0.1),
+                                    iconColor: .purple
                                 )
 
-                                StatisticCard(
+                                MetricCard(
                                     title: "Pending Invoices",
                                     value: "\(metrics.pendingInvoices)",
                                     trend: metrics.invoicesTrend,
                                     changePercentage: metrics.invoicesChangePercentage,
                                     icon: "doc.text.fill",
-                                    accentColor: .orange
+                                    backgroundColor: Color.blue.opacity(0.1),
+                                    iconColor: .blue
                                 )
                             }
                         }
@@ -222,15 +180,6 @@ struct HomeView: View {
             }
             .task {
                 await viewModel.loadData()
-            }
-            .sheet(isPresented: $showingCreateInvoice) {
-                CreateInvoiceSheet(isPresented: $showingCreateInvoice)
-            }
-            .sheet(isPresented: $showingQuickBill) {
-                QuickBillSheet(isPresented: $showingQuickBill)
-            }
-            .sheet(isPresented: $showingQuickPayment) {
-                QuickPaymentSheet(isPresented: $showingQuickPayment)
             }
         }
     }

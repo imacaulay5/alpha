@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Trend Direction
 
-enum TrendDirection: String, Codable {
+enum TrendDirection: String, Codable, Sendable {
     case up = "UP"
     case down = "DOWN"
     case neutral = "NEUTRAL"

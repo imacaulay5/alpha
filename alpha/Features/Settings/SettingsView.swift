@@ -79,8 +79,12 @@ struct SettingsView: View {
                     }
                 }
 
-                // Billing Section
-                Section("Billing") {
+                // Business Section
+                Section("Business") {
+                    NavigationLink(destination: ContactsListView()) {
+                        Label("Contacts", systemImage: "person.2")
+                    }
+
                     NavigationLink(destination: BillingRulesView()) {
                         Label("Billing Rules", systemImage: "chart.bar.doc.horizontal")
                     }

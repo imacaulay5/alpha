@@ -10,6 +10,8 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showingQuickEntry = false
+    @State private var showingCreateInvoice = false
+    @State private var showingQuickPayment = false
 
     init() {
         // Configure tab bar appearance to fix the selected icon issue
@@ -52,21 +54,44 @@ struct MainTabView: View {
             }
             .tint(.alphaPrimary)
 
-            // Floating Action Button (appears on all tabs)
+            // Expandable Floating Action Button (appears on all tabs)
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    FloatingActionButton {
-                        showingQuickEntry = true
-                    }
+                    ExpandableFAB(
+                        primaryAction: {
+                            // Long press action - show quick entry
+                            showingQuickEntry = true
+                        },
+                        secondaryActions: [
+                            FABAction(
+                                icon: "doc.badge.plus",
+                                label: "Create Invoice",
+                                color: .blue,
+                                action: { showingCreateInvoice = true }
+                            ),
+                            FABAction(
+                                icon: "creditcard.fill",
+                                label: "Quick Payment",
+                                color: .orange,
+                                action: { showingQuickPayment = true }
+                            )
+                        ]
+                    )
                     .padding(.trailing, 20)
-                    .padding(.bottom, 70) // Reduced padding
+                    .padding(.bottom, 70)
                 }
             }
         }
         .sheet(isPresented: $showingQuickEntry) {
             QuickEntrySheet(isPresented: $showingQuickEntry)
+        }
+        .sheet(isPresented: $showingCreateInvoice) {
+            CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+        }
+        .sheet(isPresented: $showingQuickPayment) {
+            QuickPaymentSheet(isPresented: $showingQuickPayment)
         }
     }
 }

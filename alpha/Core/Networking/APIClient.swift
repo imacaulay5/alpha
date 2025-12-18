@@ -37,7 +37,6 @@ enum APIError: LocalizedError {
     }
 }
 
-@MainActor
 class APIClient {
     static let shared = APIClient()
 
