@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Auth
 
 @MainActor
 class AppState: ObservableObject {
@@ -18,8 +19,29 @@ class AppState: ObservableObject {
     @Published var error: String?
 
     private let authService = AuthService.shared
+    private var authStateTask: Task<Void, Never>?
 
     // MARK: - Initialization
+
+    init() {
+        // Observe auth state changes
+        authStateTask = authService.observeAuthStateChanges { [weak self] event, session in
+            Task { @MainActor in
+                switch event {
+                case .signedIn:
+                    await self?.onSignedIn()
+                case .signedOut:
+                    self?.onSignedOut()
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    deinit {
+        authStateTask?.cancel()
+    }
 
     func checkAuthStatus() async {
         isLoading = true
@@ -52,11 +74,15 @@ class AppState: ObservableObject {
 
     // MARK: - Authentication
 
-    func login(user: User, organization: Organization) {
+    func login(user: User, organization: Organization?) {
         self.currentUser = user
-        self.organization = organization
+        self.organization = organization  // Can be nil for personal/freelancer accounts
         self.isAuthenticated = true
         self.error = nil
+    }
+
+    var requiresOrganization: Bool {
+        currentUser?.accountType.requiresOrganization ?? false
     }
 
     func logout() {
@@ -74,5 +100,32 @@ class AppState: ObservableObject {
 
     func clearError() {
         self.error = nil
+    }
+
+    // MARK: - Private Helpers
+
+    private func onSignedIn() async {
+        do {
+            // Use getUserInfo() instead of getCurrentUser() to handle new users
+            // who don't have a database record yet
+            if let user = try await authService.getUserInfo() {
+                self.currentUser = user
+                self.isAuthenticated = true
+                print("✅ AppState.onSignedIn: User found in database")
+            } else {
+                // User authenticated but no database record yet (new user during signup)
+                print("ℹ️ AppState.onSignedIn: User authenticated but no database record yet")
+                // Don't set isAuthenticated here - let the signup/login flow handle it
+            }
+        } catch {
+            print("❌ AppState.onSignedIn: Error fetching user: \(error)")
+            onSignedOut()
+        }
+    }
+
+    private func onSignedOut() {
+        self.currentUser = nil
+        self.organization = nil
+        self.isAuthenticated = false
     }
 }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Auth
 
 @MainActor
 class LoginViewModel: ObservableObject {
@@ -14,6 +15,8 @@ class LoginViewModel: ObservableObject {
     @Published var password = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var navigateToOnboarding = false
+    @Published var userName = ""
 
     private let authService = AuthService.shared
 
@@ -32,16 +35,61 @@ class LoginViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        // Real login with backend
         do {
             print("🔐 LoginViewModel: Starting login for \(email)")
-            let (user, org) = try await authService.login(
-                email: email,
-                password: password
-            )
-            print("✅ LoginViewModel: Login successful, user: \(user.name)")
-            appState.login(user: user, organization: org)
-            print("✅ LoginViewModel: AppState updated, isAuthenticated: \(appState.isAuthenticated)")
+
+            // Step 1: Sign in with password to get authenticated JWT
+            try await authService.signInWithPassword(email: email, password: password)
+            print("✅ LoginViewModel: Password authentication successful")
+
+            // Step 2: Check if user exists in database
+            let userInfo = try await authService.getUserInfo()
+
+            if let user = userInfo {
+                // User exists - complete login based on account type
+                print("✅ LoginViewModel: User exists with account type: \(user.accountType.displayName)")
+
+                if let orgId = user.organizationId {
+                    // Business account - fetch organization and login
+                    print("🏢 LoginViewModel: Fetching organization: \(orgId)")
+                    let org = try await authService.getOrganization(orgId)
+                    appState.login(user: user, organization: org)
+                    print("✅ LoginViewModel: Business login complete")
+                } else {
+                    // Personal/Freelancer account - login without organization
+                    print("👤 LoginViewModel: Personal/Freelancer login - no organization needed")
+                    appState.login(user: user, organization: nil)
+                    print("✅ LoginViewModel: Personal login complete")
+                }
+            } else {
+                // New user - get pending account type and create user record
+                print("🆕 LoginViewModel: New user - checking pending account type")
+                let accountTypeString = UserDefaults.standard.string(forKey: "pendingAccountType") ?? "business"
+                guard let accountType = AccountType(rawValue: accountTypeString) else {
+                    errorMessage = "Invalid account type"
+                    return
+                }
+
+                if accountType.requiresOrganization {
+                    // Business account - navigate to onboarding to create organization
+                    print("🏢 LoginViewModel: Business account - navigating to organization setup")
+                    if let session = authService.currentSession {
+                        userName = session.user.userMetadata["name"]?.description ?? email.components(separatedBy: "@").first ?? "User"
+                    }
+                    navigateToOnboarding = true
+                } else {
+                    // Personal/Freelancer - create user without organization
+                    print("👤 LoginViewModel: Creating \(accountType.displayName) user")
+                    let name = authService.currentSession?.user.userMetadata["name"]?.description ?? email.components(separatedBy: "@").first ?? "User"
+                    let newUser = try await authService.createPersonalUser(name: name, accountType: accountType)
+
+                    // Clear the pending account type
+                    UserDefaults.standard.removeObject(forKey: "pendingAccountType")
+
+                    appState.login(user: newUser, organization: nil)
+                    print("✅ LoginViewModel: Personal user created and logged in")
+                }
+            }
         } catch {
             print("❌ LoginViewModel: Login failed with error: \(error)")
             errorMessage = error.localizedDescription
@@ -55,6 +103,7 @@ class LoginViewModel: ObservableObject {
 struct LoginView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = LoginViewModel()
+    @State private var showSignUp = false
 
     var body: some View {
         ZStack {
@@ -167,7 +216,7 @@ struct LoginView: View {
                             .foregroundColor(.alphaSecondaryText)
 
                         Button(action: {
-                            // TODO: Implement sign up
+                            showSignUp = true
                         }) {
                             Text("Sign Up")
                                 .font(.alphaBodySmall)
@@ -179,6 +228,14 @@ struct LoginView: View {
                     .padding(.bottom, 40)
                 }
             }
+        }
+        .sheet(isPresented: $showSignUp) {
+            SignUpView()
+                .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $viewModel.navigateToOnboarding) {
+            OnboardingView(userName: viewModel.userName)
+                .environmentObject(appState)
         }
     }
 }

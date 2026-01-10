@@ -9,10 +9,11 @@ import Foundation
 
 struct User: Codable, Identifiable {
     let id: String
-    let organizationId: String
+    let organizationId: String?  // Optional - null for personal/freelancer accounts
     let email: String
     let name: String
     let role: Role
+    let accountType: AccountType  // New field to track account type
     let hourlyRate: Double?
     let isActive: Bool
     let avatarUrl: String?
@@ -28,6 +29,7 @@ struct User: Codable, Identifiable {
         case email
         case name
         case role
+        case accountType = "account_type"
         case hourlyRate = "hourly_rate"
         case isActive = "is_active"
         case avatarUrl = "avatar_url"
@@ -62,11 +64,46 @@ extension User {
         email: "john@example.com",
         name: "John Doe",
         role: .member,
+        accountType: .business,
         hourlyRate: 150.0,
         isActive: true,
         avatarUrl: nil,
         phone: "+1 555-0123",
         timezone: "America/Los_Angeles",
+        preferences: nil,
+        createdAt: Date(),
+        updatedAt: Date()
+    )
+
+    static let personalPreview = User(
+        id: "user_2",
+        organizationId: nil,
+        email: "jane@example.com",
+        name: "Jane Smith",
+        role: .member,
+        accountType: .personal,
+        hourlyRate: nil,
+        isActive: true,
+        avatarUrl: nil,
+        phone: nil,
+        timezone: "America/New_York",
+        preferences: nil,
+        createdAt: Date(),
+        updatedAt: Date()
+    )
+
+    static let freelancerPreview = User(
+        id: "user_3",
+        organizationId: nil,
+        email: "bob@example.com",
+        name: "Bob Johnson",
+        role: .contractor,
+        accountType: .freelancer,
+        hourlyRate: 125.0,
+        isActive: true,
+        avatarUrl: nil,
+        phone: nil,
+        timezone: "America/Chicago",
         preferences: nil,
         createdAt: Date(),
         updatedAt: Date()
