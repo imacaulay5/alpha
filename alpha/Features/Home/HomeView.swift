@@ -8,45 +8,6 @@
 import SwiftUI
 import Combine
 
-// MARK: - Data Models
-
-struct BusinessMetrics: Codable, Sendable {
-    let totalRevenue: Double
-    let revenueChangePercentage: Double
-    let revenueTrend: TrendDirection
-
-    let outstandingRevenue: Double
-    let outstandingChangePercentage: Double
-    let outstandingTrend: TrendDirection
-
-    let billableHoursThisMonth: Double
-    let hoursChangePercentage: Double
-    let hoursTrend: TrendDirection
-
-    let pendingInvoices: Int
-    let invoicesChangePercentage: Double
-    let invoicesTrend: TrendDirection
-
-    enum CodingKeys: String, CodingKey {
-        case totalRevenue = "total_revenue"
-        case revenueChangePercentage = "revenue_change_percentage"
-        case revenueTrend = "revenue_trend"
-        case outstandingRevenue = "outstanding_revenue"
-        case outstandingChangePercentage = "outstanding_change_percentage"
-        case outstandingTrend = "outstanding_trend"
-        case billableHoursThisMonth = "billable_hours_this_month"
-        case hoursChangePercentage = "hours_change_percentage"
-        case hoursTrend = "hours_trend"
-        case pendingInvoices = "pending_invoices"
-        case invoicesChangePercentage = "invoices_change_percentage"
-        case invoicesTrend = "invoices_trend"
-    }
-}
-
-struct RecentActivity: Codable, Sendable {
-    let activities: [ActivityItem]
-}
-
 // MARK: - View Model
 
 @MainActor
@@ -64,11 +25,13 @@ class HomeViewModel: ObservableObject {
 
         do {
             // Load metrics and activity in parallel
-            async let metricsTask: BusinessMetrics = apiClient.get("/dashboard/business-metrics")
-            async let activityTask: RecentActivity = apiClient.get("/dashboard/recent-activity")
+            async let metrics: BusinessMetrics = apiClient.get("/dashboard/business-metrics")
+            async let activity: RecentActivity = apiClient.get("/dashboard/recent-activity")
 
-            businessMetrics = try await metricsTask
-            recentActivity = try await activityTask
+            let (metricsResult, activityResult) = try await (metrics, activity)
+
+            businessMetrics = metricsResult
+            recentActivity = activityResult
         } catch {
             errorMessage = "Failed to load dashboard data: \(error.localizedDescription)"
         }
@@ -82,93 +45,113 @@ class HomeViewModel: ObservableObject {
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
+    @State private var showingCreateInvoice = false
+    @State private var showingQuickEntry = false
+    @State private var showingQuickBill = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Welcome & Business Metrics
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Welcome back!")
-                            .font(.alphaTitle)
-                            .foregroundColor(.alphaPrimaryText)
-
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 16) {
-                            if let metrics = viewModel.businessMetrics {
-                                MetricCard(
-                                    title: "Total Revenue",
-                                    value: formatCurrency(metrics.totalRevenue),
-                                    trend: metrics.revenueTrend,
-                                    changePercentage: metrics.revenueChangePercentage,
-                                    icon: "dollarsign.circle.fill",
-                                    backgroundColor: Color.green.opacity(0.1),
-                                    iconColor: .green
-                                )
-
-                                MetricCard(
-                                    title: "Outstanding Revenue",
-                                    value: formatCurrency(metrics.outstandingRevenue),
-                                    trend: metrics.outstandingTrend,
-                                    changePercentage: metrics.outstandingChangePercentage,
-                                    icon: "exclamationmark.circle.fill",
-                                    backgroundColor: Color.orange.opacity(0.1),
-                                    iconColor: .orange
-                                )
-
-                                MetricCard(
-                                    title: "Billable Hours",
-                                    value: String(format: "%.1f", metrics.billableHoursThisMonth),
-                                    trend: metrics.hoursTrend,
-                                    changePercentage: metrics.hoursChangePercentage,
-                                    icon: "clock.fill",
-                                    backgroundColor: Color.purple.opacity(0.1),
-                                    iconColor: .purple
-                                )
-
-                                MetricCard(
-                                    title: "Pending Invoices",
-                                    value: "\(metrics.pendingInvoices)",
-                                    trend: metrics.invoicesTrend,
-                                    changePercentage: metrics.invoicesChangePercentage,
-                                    icon: "doc.text.fill",
-                                    backgroundColor: Color.blue.opacity(0.1),
-                                    iconColor: .blue
-                                )
-                            }
+                    if viewModel.isLoading {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                            Text("Loading your dashboard...")
+                                .font(.alphaBody)
+                                .foregroundColor(.alphaSecondaryText)
                         }
-                    }
-                    .padding(.horizontal)
-
-                    // Recent Activity
-                    if let activities = viewModel.recentActivity?.activities, !activities.isEmpty {
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.top, 100)
+                    } else if hasNoData {
+                        EmptyStateView(
+                            onCreateInvoice: { showingCreateInvoice = true },
+                            onLogHours: { showingQuickEntry = true },
+                            onQuickBill: { showingQuickBill = true }
+                        )
+                    } else {
+                        // Welcome & Business Metrics
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Recent Activity")
+                            Text("Welcome back!")
                                 .font(.alphaTitle)
                                 .foregroundColor(.alphaPrimaryText)
 
-                            VStack(spacing: 0) {
-                                ForEach(activities) { activity in
-                                    ActivityItemRow(activity: activity)
-                                        .padding(.vertical, 12)
-                                        .padding(.horizontal)
+                            LazyVGrid(columns: [
+                                GridItem(.flexible()),
+                                GridItem(.flexible())
+                            ], spacing: 16) {
+                                if let metrics = viewModel.businessMetrics {
+                                    MetricCard(
+                                        title: "Total Revenue",
+                                        value: formatCurrency(metrics.totalRevenue),
+                                        trend: metrics.revenueTrend,
+                                        changePercentage: metrics.revenueChangePercentage,
+                                        icon: "dollarsign.circle.fill",
+                                        backgroundColor: Color.green.opacity(0.1),
+                                        iconColor: .green
+                                    )
 
-                                    if activity.id != activities.last?.id {
-                                        Divider()
-                                            .padding(.leading, 56)
-                                    }
+                                    MetricCard(
+                                        title: "Outstanding Revenue",
+                                        value: formatCurrency(metrics.outstandingRevenue),
+                                        trend: metrics.outstandingTrend,
+                                        changePercentage: metrics.outstandingChangePercentage,
+                                        icon: "exclamationmark.circle.fill",
+                                        backgroundColor: Color.orange.opacity(0.1),
+                                        iconColor: .orange
+                                    )
+
+                                    MetricCard(
+                                        title: "Billable Hours",
+                                        value: String(format: "%.1f", metrics.billableHoursThisMonth),
+                                        trend: metrics.hoursTrend,
+                                        changePercentage: metrics.hoursChangePercentage,
+                                        icon: "clock.fill",
+                                        backgroundColor: Color.purple.opacity(0.1),
+                                        iconColor: .purple
+                                    )
+
+                                    MetricCard(
+                                        title: "Pending Invoices",
+                                        value: "\(metrics.pendingInvoices)",
+                                        trend: metrics.invoicesTrend,
+                                        changePercentage: metrics.invoicesChangePercentage,
+                                        icon: "doc.text.fill",
+                                        backgroundColor: Color.blue.opacity(0.1),
+                                        iconColor: .blue
+                                    )
                                 }
                             }
-                            .background(Color.alphaCardBackground)
-                            .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         }
                         .padding(.horizontal)
-                    }
 
-                    Spacer()
+                        // Recent Activity
+                        if let activities = viewModel.recentActivity?.activities, !activities.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Recent Activity")
+                                    .font(.alphaTitle)
+                                    .foregroundColor(.alphaPrimaryText)
+
+                                VStack(spacing: 0) {
+                                    ForEach(activities) { activity in
+                                        ActivityItemRow(activity: activity)
+                                            .padding(.vertical, 12)
+                                            .padding(.horizontal)
+
+                                        if activity.id != activities.last?.id {
+                                            Divider()
+                                                .padding(.leading, 56)
+                                        }
+                                    }
+                                }
+                                .background(Color.alphaCardBackground)
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+                            }
+                            .padding(.horizontal)
+                        }
+
+                        Spacer()
+                    }
                 }
                 .padding(.vertical)
             }
@@ -181,7 +164,20 @@ struct HomeView: View {
             .task {
                 await viewModel.loadData()
             }
+            .sheet(isPresented: $showingCreateInvoice) {
+                CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+            }
+            .sheet(isPresented: $showingQuickEntry) {
+                QuickEntrySheet(isPresented: $showingQuickEntry)
+            }
+            .sheet(isPresented: $showingQuickBill) {
+                QuickBillSheet(isPresented: $showingQuickBill)
+            }
         }
+    }
+
+    private var hasNoData: Bool {
+        viewModel.businessMetrics == nil && viewModel.recentActivity == nil && !viewModel.isLoading
     }
 
     // MARK: - Helper Functions
@@ -194,6 +190,66 @@ struct HomeView: View {
         } else {
             return String(format: "$%.0f", value)
         }
+    }
+}
+
+// MARK: - Empty State View
+
+struct EmptyStateView: View {
+    let onCreateInvoice: () -> Void
+    let onLogHours: () -> Void
+    let onQuickBill: () -> Void
+
+    var body: some View {
+        VStack(spacing: 32) {
+            VStack(spacing: 16) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 64))
+                    .foregroundColor(.alphaAccent.opacity(0.6))
+
+                Text("Welcome to Alpha!")
+                    .font(.alphaTitle)
+                    .foregroundColor(.alphaPrimaryText)
+
+                Text("Start tracking your business by creating your first invoice or logging billable hours.")
+                    .font(.alphaBody)
+                    .foregroundColor(.alphaSecondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            VStack(spacing: 16) {
+                QuickActionCard(
+                    title: "Create Invoice",
+                    description: "Bill your clients for completed work",
+                    icon: "doc.text.fill",
+                    backgroundColor: Color.blue.opacity(0.1),
+                    iconColor: .blue,
+                    action: onCreateInvoice
+                )
+
+                QuickActionCard(
+                    title: "Log Hours",
+                    description: "Track billable time on tasks",
+                    icon: "clock.fill",
+                    backgroundColor: Color.purple.opacity(0.1),
+                    iconColor: .purple,
+                    action: onLogHours
+                )
+
+                QuickActionCard(
+                    title: "Quick Bill",
+                    description: "Bill time entries to clients",
+                    icon: "dollarsign.circle.fill",
+                    backgroundColor: Color.green.opacity(0.1),
+                    iconColor: .green,
+                    action: onQuickBill
+                )
+            }
+            .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 60)
     }
 }
 

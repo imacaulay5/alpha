@@ -15,8 +15,33 @@ struct QuickBillSheet: View {
     @State private var lineItems: [BillLineItem] = [BillLineItem()]
     @State private var expenseDate = Date()
     @State private var showingNewContact = false
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     private let apiClient = APIClient.shared
+
+    // Request structure matching backend schema
+    private struct CreateExpenseRequest: Codable {
+        let expenseDate: String
+        let lineItems: [ExpenseLineItemRequest]
+        let currency: String
+
+        enum CodingKeys: String, CodingKey {
+            case expenseDate = "expense_date"
+            case lineItems = "line_items"
+            case currency
+        }
+    }
+
+    private struct ExpenseLineItemRequest: Codable {
+        let description: String
+        let amount: Double
+        let category: String
+    }
+
+    private struct ExpenseResponse: Codable {
+        let id: String
+    }
 
     private let categories = [
         ("OFFICE_SUPPLIES", "Office Supplies"),
@@ -140,6 +165,35 @@ struct QuickBillSheet: View {
             }
             .navigationTitle("Quick Bill")
             .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if isSubmitting {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Saving bill...")
+                                .font(.alphaBody)
+                                .foregroundColor(.alphaPrimaryText)
+                        }
+                        .padding(24)
+                        .background(Color.alphaCardBackground)
+                        .cornerRadius(12)
+                        .shadow(radius: 10)
+                    }
+                }
+            }
+            .alert("Error", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") {
+                    errorMessage = nil
+                }
+            } message: {
+                if let error = errorMessage {
+                    Text(error)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -149,11 +203,11 @@ struct QuickBillSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        // TODO: Save bill logic
-                        // apiClient.post("/expenses", data: ...)
-                        isPresented = false
+                        Task {
+                            await createBill()
+                        }
                     }
-                    .disabled(!isFormValid)
+                    .disabled(!isFormValid || isSubmitting)
                 }
             }
             .task {
@@ -196,6 +250,38 @@ struct QuickBillSheet: View {
         }
 
         isLoadingContacts = false
+    }
+
+    private func createBill() async {
+        isSubmitting = true
+        errorMessage = nil
+
+        do {
+            let formatter = ISO8601DateFormatter()
+            let dateString = formatter.string(from: expenseDate)
+
+            let lineItemRequests = lineItems.map { item in
+                ExpenseLineItemRequest(
+                    description: item.description,
+                    amount: item.amount,
+                    category: item.category
+                )
+            }
+
+            let request = CreateExpenseRequest(
+                expenseDate: dateString,
+                lineItems: lineItemRequests,
+                currency: "USD"
+            )
+
+            let _: ExpenseResponse = try await apiClient.post("/expenses", body: request)
+
+            isPresented = false
+        } catch {
+            errorMessage = "Failed to save bill: \(error.localizedDescription)"
+        }
+
+        isSubmitting = false
     }
 }
 

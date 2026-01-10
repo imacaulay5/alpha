@@ -16,8 +16,43 @@ struct CreateInvoiceSheet: View {
     @State private var dueDate = Date()
     @State private var notes = ""
     @State private var showingNewContact = false
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     private let apiClient = APIClient.shared
+
+    // Request structure matching backend schema
+    private struct CreateInvoiceRequest: Codable {
+        let clientId: String
+        let dueDate: String
+        let lineItems: [InvoiceLineItemRequest]
+        let notes: String?
+        let currency: String
+
+        enum CodingKeys: String, CodingKey {
+            case clientId = "client_id"
+            case dueDate = "due_date"
+            case lineItems = "line_items"
+            case notes
+            case currency
+        }
+    }
+
+    private struct InvoiceLineItemRequest: Codable {
+        let description: String
+        let quantity: Double
+        let rate: Double
+    }
+
+    private struct InvoiceResponse: Codable {
+        let id: String
+        let invoiceNumber: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case invoiceNumber = "invoice_number"
+        }
+    }
 
     private var totalAmount: Double {
         lineItems.reduce(0) { $0 + $1.total }
@@ -141,6 +176,35 @@ struct CreateInvoiceSheet: View {
             }
             .navigationTitle("Create Invoice")
             .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if isSubmitting {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Creating invoice...")
+                                .font(.alphaBody)
+                                .foregroundColor(.alphaPrimaryText)
+                        }
+                        .padding(24)
+                        .background(Color.alphaCardBackground)
+                        .cornerRadius(12)
+                        .shadow(radius: 10)
+                    }
+                }
+            }
+            .alert("Error", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") {
+                    errorMessage = nil
+                }
+            } message: {
+                if let error = errorMessage {
+                    Text(error)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -150,11 +214,11 @@ struct CreateInvoiceSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        // TODO: Create invoice logic
-                        // apiClient.post("/invoices", data: ...)
-                        isPresented = false
+                        Task {
+                            await createInvoice()
+                        }
                     }
-                    .disabled(!isFormValid)
+                    .disabled(!isFormValid || isSubmitting)
                 }
             }
             .task {
@@ -197,6 +261,42 @@ struct CreateInvoiceSheet: View {
         }
 
         isLoadingContacts = false
+    }
+
+    private func createInvoice() async {
+        guard let contact = selectedContact else { return }
+
+        isSubmitting = true
+        errorMessage = nil
+
+        do {
+            let formatter = ISO8601DateFormatter()
+            let dueDateString = formatter.string(from: dueDate)
+
+            let lineItemRequests = lineItems.map { item in
+                InvoiceLineItemRequest(
+                    description: item.description,
+                    quantity: item.quantity,
+                    rate: item.rate
+                )
+            }
+
+            let request = CreateInvoiceRequest(
+                clientId: contact.id,
+                dueDate: dueDateString,
+                lineItems: lineItemRequests,
+                notes: notes.isEmpty ? nil : notes,
+                currency: "USD"
+            )
+
+            let _: InvoiceResponse = try await apiClient.post("/invoices", body: request)
+
+            isPresented = false
+        } catch {
+            errorMessage = "Failed to create invoice: \(error.localizedDescription)"
+        }
+
+        isSubmitting = false
     }
 }
 
