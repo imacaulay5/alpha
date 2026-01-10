@@ -22,7 +22,8 @@ class SupabaseClientManager {
             options: SupabaseClientOptions(
                 auth: .init(
                     flowType: .pkce,
-                    autoRefreshToken: true
+                    autoRefreshToken: true,
+                    emitLocalSessionAsInitialSession: true
                 )
             )
         )

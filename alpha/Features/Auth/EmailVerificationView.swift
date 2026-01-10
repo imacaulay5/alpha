@@ -14,9 +14,9 @@ class EmailVerificationViewModel: ObservableObject {
     @Published var verificationCode = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
-    @Published var isVerified = false
-    @Published var showSuccessConfirmation = false  // NEW: Show success message
-    @Published var canProceed = false  // NEW: Enable continue button
+    @Published var showSuccessConfirmation = false  // Show success message
+    @Published var canProceed = false  // Enable continue button
+    @Published var navigateToLogin = false  // Navigate to login after sign out
 
     let email: String
     private let authService = AuthService.shared
@@ -100,9 +100,23 @@ class EmailVerificationViewModel: ObservableObject {
         isLoading = false
     }
 
-    func proceedToOnboarding() {
-        print("➡️ EmailVerificationViewModel: User clicked Continue - proceeding to onboarding")
-        isVerified = true
+    func proceedToLogin() async {
+        print("➡️ EmailVerificationViewModel: User clicked Continue - signing out and proceeding to login")
+        isLoading = true
+
+        do {
+            // Sign the user out to get a fresh authentication session
+            try await authService.signOut()
+            print("✅ EmailVerificationViewModel: User signed out successfully")
+
+            // Navigate to login
+            navigateToLogin = true
+        } catch {
+            print("❌ EmailVerificationViewModel: Sign out failed: \(error)")
+            errorMessage = "Failed to sign out. Please try again."
+        }
+
+        isLoading = false
     }
 
     func resendCode() async {
@@ -176,7 +190,7 @@ struct EmailVerificationView: View {
                                     .font(.alphaTitle)
                                     .foregroundColor(.alphaPrimaryText)
 
-                                Text("Your email has been successfully verified. You can now continue to set up your organization.")
+                                Text("Your email has been successfully verified. Please sign in with your password to continue.")
                                     .font(.alphaBody)
                                     .foregroundColor(.alphaSecondaryText)
                                     .multilineTextAlignment(.center)
@@ -185,12 +199,15 @@ struct EmailVerificationView: View {
 
                             // Continue Button
                             AlphaButton(
-                                "Continue to Setup",
+                                "Continue to Sign In",
                                 style: .primary,
                                 size: .large,
+                                isLoading: viewModel.isLoading,
                                 isDisabled: !viewModel.canProceed
                             ) {
-                                viewModel.proceedToOnboarding()
+                                Task {
+                                    await viewModel.proceedToLogin()
+                                }
                             }
                             .padding(.top, 16)
                         }
@@ -267,8 +284,8 @@ struct EmailVerificationView: View {
                 Spacer()
             }
         }
-        .fullScreenCover(isPresented: $viewModel.isVerified) {
-            OnboardingView(userName: userName)
+        .fullScreenCover(isPresented: $viewModel.navigateToLogin) {
+            LoginView()
                 .environmentObject(appState)
         }
         .interactiveDismissDisabled()
