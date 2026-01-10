@@ -56,6 +56,81 @@ struct User: Codable, Identifiable {
     }
 }
 
+// MARK: - Capability Resolution
+
+extension User {
+    /// Computed capabilities based on account type and role
+    /// For non-business accounts: uses account type capabilities
+    /// For business accounts: uses role-based capabilities
+    var capabilities: Set<Capability> {
+        var caps = accountType.capabilities
+
+        // For business accounts, role determines actual capabilities
+        // Members/contractors have restricted access even in business accounts
+        if accountType == .business {
+            switch role {
+            case .owner, .admin:
+                // Owners and admins get role-based capabilities
+                caps = role.additionalCapabilities
+            case .member, .contractor:
+                // Members and contractors get limited capabilities
+                caps = role.additionalCapabilities
+            }
+        }
+
+        return caps
+    }
+
+    /// Check if user has a specific capability
+    func hasCapability(_ capability: Capability) -> Bool {
+        capabilities.contains(capability)
+    }
+
+    // MARK: - Convenience Capability Checks
+
+    /// Can manage team members (invite, edit, remove)
+    var canManageTeam: Bool {
+        hasCapability(.manageUsers) || hasCapability(.inviteTeamMembers)
+    }
+
+    /// Can create and manage invoices
+    var canManageInvoices: Bool {
+        hasCapability(.createInvoices) && hasCapability(.sendInvoices)
+    }
+
+    /// Can access billing features
+    var canAccessBilling: Bool {
+        hasCapability(.viewInvoices) || hasCapability(.viewAccountsReceivable)
+    }
+
+    /// Can approve time entries or expenses
+    var canApprove: Bool {
+        hasCapability(.approveTimeEntries) || hasCapability(.approveExpenses)
+    }
+
+    /// Can manage organization settings
+    var canManageOrganization: Bool {
+        hasCapability(.manageOrganization)
+    }
+
+    /// Can access payroll features
+    var canAccessPayroll: Bool {
+        hasCapability(.viewPayroll) || hasCapability(.processPayroll)
+    }
+
+    /// Can access inventory features
+    var canAccessInventory: Bool {
+        hasCapability(.viewInventory)
+    }
+
+    /// Can access accounting features
+    var canAccessAccounting: Bool {
+        hasCapability(.viewAccountsPayable) ||
+        hasCapability(.reconcileBankAccounts) ||
+        hasCapability(.recordJournalEntries)
+    }
+}
+
 // MARK: - Preview Helpers
 extension User {
     static let preview = User(

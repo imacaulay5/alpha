@@ -129,3 +129,156 @@ class AppState: ObservableObject {
         self.isAuthenticated = false
     }
 }
+
+// MARK: - Capability Helpers
+
+extension AppState {
+    /// Check if current user has a specific capability
+    func hasCapability(_ capability: Capability) -> Bool {
+        currentUser?.hasCapability(capability) ?? false
+    }
+
+    /// Determines which main tabs should be visible based on user capabilities
+    var visibleTabs: [MainTab] {
+        guard let user = currentUser else { return [.home] }
+
+        var tabs: [MainTab] = [.home]
+
+        // Tasks tab - visible if user can track time
+        if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) {
+            tabs.append(.tasks)
+        }
+
+        // Billing tab - visible if user can access billing features
+        if user.canAccessBilling {
+            tabs.append(.billing)
+        }
+
+        // Settings always visible
+        tabs.append(.settings)
+
+        return tabs
+    }
+
+    /// Feature modules available to the user (for future expansion)
+    var availableModules: Set<AppModule> {
+        guard let user = currentUser else { return [] }
+
+        var modules: Set<AppModule> = [.dashboard, .settings]
+
+        if user.hasCapability(.trackTime) {
+            modules.insert(.timeTracking)
+        }
+
+        if user.canManageInvoices {
+            modules.insert(.invoicing)
+        }
+
+        if user.hasCapability(.viewAccountsReceivable) || user.hasCapability(.viewAccountsPayable) {
+            modules.insert(.accounting)
+        }
+
+        if user.canAccessPayroll {
+            modules.insert(.payroll)
+        }
+
+        if user.canAccessInventory {
+            modules.insert(.inventory)
+        }
+
+        if user.hasCapability(.viewTaxDashboard) {
+            modules.insert(.taxCompliance)
+        }
+
+        if user.canManageTeam {
+            modules.insert(.teamManagement)
+        }
+
+        return modules
+    }
+}
+
+// MARK: - App Module Definition
+
+/// Future module structure for app expansion
+enum AppModule: String, CaseIterable, Hashable {
+    case dashboard
+    case timeTracking
+    case invoicing
+    case accounting
+    case payroll
+    case inventory
+    case taxCompliance
+    case teamManagement
+    case settings
+
+    var icon: String {
+        switch self {
+        case .dashboard: return "house.fill"
+        case .timeTracking: return "clock.fill"
+        case .invoicing: return "doc.text.fill"
+        case .accounting: return "chart.bar.fill"
+        case .payroll: return "dollarsign.circle.fill"
+        case .inventory: return "shippingbox.fill"
+        case .taxCompliance: return "doc.plaintext.fill"
+        case .teamManagement: return "person.3.fill"
+        case .settings: return "gearshape.fill"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .dashboard: return "Dashboard"
+        case .timeTracking: return "Time Tracking"
+        case .invoicing: return "Invoicing"
+        case .accounting: return "Accounting"
+        case .payroll: return "Payroll"
+        case .inventory: return "Inventory"
+        case .taxCompliance: return "Tax & Compliance"
+        case .teamManagement: return "Team"
+        case .settings: return "Settings"
+        }
+    }
+}
+
+// MARK: - Main Tab Definition
+
+/// Main tabs for the app navigation
+enum MainTab: Int, Identifiable, CaseIterable {
+    case home = 0
+    case tasks = 1
+    case billing = 2
+    case settings = 3
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: return "Home"
+        case .tasks: return "Tasks"
+        case .billing: return "Billing"
+        case .settings: return "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: return "house.fill"
+        case .tasks: return "list.bullet.clipboard"
+        case .billing: return "doc.text.fill"
+        case .settings: return "gearshape.fill"
+        }
+    }
+
+    /// Capability required to see this tab (nil = always visible)
+    var requiredCapability: Capability? {
+        switch self {
+        case .home, .settings:
+            return nil // Always visible
+        case .tasks:
+            return .trackTime
+        case .billing:
+            return .viewInvoices
+        }
+    }
+}
