@@ -12,7 +12,16 @@ struct FABAction: Identifiable {
     let icon: String
     let label: String
     let color: Color
+    let requiredCapability: Capability?
     let action: () -> Void
+
+    init(icon: String, label: String, color: Color, requiredCapability: Capability? = nil, action: @escaping () -> Void) {
+        self.icon = icon
+        self.label = label
+        self.color = color
+        self.requiredCapability = requiredCapability
+        self.action = action
+    }
 }
 
 struct ExpandableFAB: View {

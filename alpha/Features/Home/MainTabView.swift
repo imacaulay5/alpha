@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @EnvironmentObject var appState: AppState
     @State private var selectedTab = 0
     @State private var showingQuickEntry = false
     @State private var showingCreateInvoice = false
@@ -25,94 +26,85 @@ struct MainTabView: View {
         }
     }
 
+    // Dynamically filter tabs based on user capabilities
+    var visibleTabs: [MainTab] {
+        MainTab.allCases.filter { tab in
+            guard let required = tab.requiredCapability else { return true }
+            return appState.hasCapability(required)
+        }
+    }
+
     var body: some View {
         ZStack {
-            // Tab View
+            // Dynamic Tab View based on capabilities
             TabView(selection: $selectedTab) {
-                HomeView()
-                    .tabItem {
-                        Label("Home", systemImage: "house.fill")
-                    }
-                    .tag(0)
-
-                TasksView()
-                    .tabItem {
-                        Label("Tasks", systemImage: "list.bullet.clipboard")
-                    }
-                    .tag(1)
-
-                BillingView()
-                    .tabItem {
-                        Label("Billing", systemImage: "doc.text.fill")
-                    }
-                    .tag(2)
-
-                SettingsView()
-                    .tabItem {
-                        Label("Settings", systemImage: "gearshape.fill")
-                    }
-                    .tag(3)
+                ForEach(visibleTabs) { tab in
+                    tabContent(for: tab)
+                        .tabItem {
+                            Label(tab.title, systemImage: tab.icon)
+                        }
+                        .tag(tab.rawValue)
+                }
             }
             .tint(.alphaPrimary)
 
             // Context-aware Floating Action Button
-            if selectedTab != 3 { // Hide on Settings tab
+            if let currentTab = visibleTabs.first(where: { $0.rawValue == selectedTab }),
+               currentTab != .settings {
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
 
-                        switch selectedTab {
-                        case 0: // Home tab - Expandable menu
-                            ExpandableFAB(
-                                primaryAction: {
-                                    showingQuickEntry = true
-                                },
-                                secondaryActions: [
-                                    FABAction(
-                                        icon: "doc.badge.plus",
-                                        label: "Create Invoice",
-                                        color: .blue,
-                                        action: { showingCreateInvoice = true }
-                                    ),
-                                    FABAction(
-                                        icon: "creditcard.fill",
-                                        label: "Quick Payment",
-                                        color: .orange,
-                                        action: { showingQuickPayment = true }
-                                    )
-                                ]
-                            )
-
-                        case 1: // Tasks tab - Simple create invoice button
-                            Button(action: { showingCreateInvoice = true }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 60, height: 60)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.alphaPrimary)
-                                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
-                                    )
+                        switch currentTab {
+                        case .home: // Home tab - Expandable menu with capability-filtered actions
+                            let actions = homeActions.filter { action in
+                                guard let required = action.requiredCapability else { return true }
+                                return appState.hasCapability(required)
                             }
-                            .accessibilityLabel("Create invoice")
 
-                        case 2: // Billing tab - Simple Quick Bill button
-                            Button(action: { showingQuickBill = true }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 60, height: 60)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.alphaPrimary)
-                                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
-                                    )
+                            if !actions.isEmpty {
+                                ExpandableFAB(
+                                    primaryAction: {
+                                        showingQuickEntry = true
+                                    },
+                                    secondaryActions: actions
+                                )
                             }
-                            .accessibilityLabel("Quick Bill")
 
-                        default:
+                        case .tasks: // Tasks tab - Simple create invoice button (if can create invoices)
+                            if appState.hasCapability(.createInvoices) {
+                                Button(action: { showingCreateInvoice = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.alphaPrimary)
+                                                .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                        )
+                                }
+                                .accessibilityLabel("Create invoice")
+                            }
+
+                        case .billing: // Billing tab - Quick Bill button (if has capability)
+                            if appState.hasCapability(.quickBill) {
+                                Button(action: { showingQuickBill = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.alphaPrimary)
+                                                .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                        )
+                                }
+                                .accessibilityLabel("Quick Bill")
+                            }
+
+                        case .settings:
                             EmptyView()
                         }
 
@@ -134,6 +126,42 @@ struct MainTabView: View {
         .sheet(isPresented: $showingQuickBill) {
             QuickBillSheet(isPresented: $showingQuickBill)
         }
+    }
+
+    // MARK: - Helper Methods
+
+    @ViewBuilder
+    private func tabContent(for tab: MainTab) -> some View {
+        switch tab {
+        case .home:
+            HomeView()
+        case .tasks:
+            TasksView()
+        case .billing:
+            BillingView()
+        case .settings:
+            SettingsView()
+        }
+    }
+
+    // Home tab FAB actions with capability requirements
+    private var homeActions: [FABAction] {
+        [
+            FABAction(
+                icon: "doc.badge.plus",
+                label: "Create Invoice",
+                color: .blue,
+                requiredCapability: .createInvoices,
+                action: { showingCreateInvoice = true }
+            ),
+            FABAction(
+                icon: "creditcard.fill",
+                label: "Quick Payment",
+                color: .orange,
+                requiredCapability: .recordPayments,
+                action: { showingQuickPayment = true }
+            )
+        ]
     }
 }
 
