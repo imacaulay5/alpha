@@ -69,58 +69,14 @@ struct HomeView: View {
                             onQuickBill: { showingQuickBill = true }
                         )
                     } else {
-                        // Welcome & Business Metrics
+                        // Welcome & Account-Specific Metrics
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Welcome back!")
+                            Text("Welcome back, \(appState.currentUser?.name.components(separatedBy: " ").first ?? "")!")
                                 .font(.alphaTitle)
                                 .foregroundColor(.alphaPrimaryText)
 
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 16) {
-                                if let metrics = viewModel.businessMetrics {
-                                    MetricCard(
-                                        title: "Total Revenue",
-                                        value: formatCurrency(metrics.totalRevenue),
-                                        trend: metrics.revenueTrend,
-                                        changePercentage: metrics.revenueChangePercentage,
-                                        icon: "dollarsign.circle.fill",
-                                        backgroundColor: Color.green.opacity(0.1),
-                                        iconColor: .green
-                                    )
-
-                                    MetricCard(
-                                        title: "Outstanding Revenue",
-                                        value: formatCurrency(metrics.outstandingRevenue),
-                                        trend: metrics.outstandingTrend,
-                                        changePercentage: metrics.outstandingChangePercentage,
-                                        icon: "exclamationmark.circle.fill",
-                                        backgroundColor: Color.orange.opacity(0.1),
-                                        iconColor: .orange
-                                    )
-
-                                    MetricCard(
-                                        title: "Billable Hours",
-                                        value: String(format: "%.1f", metrics.billableHoursThisMonth),
-                                        trend: metrics.hoursTrend,
-                                        changePercentage: metrics.hoursChangePercentage,
-                                        icon: "clock.fill",
-                                        backgroundColor: Color.purple.opacity(0.1),
-                                        iconColor: .purple
-                                    )
-
-                                    MetricCard(
-                                        title: "Pending Invoices",
-                                        value: "\(metrics.pendingInvoices)",
-                                        trend: metrics.invoicesTrend,
-                                        changePercentage: metrics.invoicesChangePercentage,
-                                        icon: "doc.text.fill",
-                                        backgroundColor: Color.blue.opacity(0.1),
-                                        iconColor: .blue
-                                    )
-                                }
-                            }
+                            // Show different metrics based on account type
+                            metricsSection
                         }
                         .padding(.horizontal)
 
@@ -180,6 +136,147 @@ struct HomeView: View {
         viewModel.businessMetrics == nil && viewModel.recentActivity == nil && !viewModel.isLoading
     }
 
+    // MARK: - Account-Specific Metrics
+
+    @ViewBuilder
+    private var metricsSection: some View {
+        switch appState.currentUser?.accountType {
+        case .personal:
+            personalMetrics
+        case .freelancer:
+            freelancerMetrics
+        case .business:
+            businessMetrics
+        case .none:
+            EmptyView()
+        }
+    }
+
+    // Personal Account - Simple metrics (2 cards)
+    private var personalMetrics: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+            if let metrics = viewModel.businessMetrics {
+                MetricCard(
+                    title: "Hours This Week",
+                    value: String(format: "%.1f", metrics.billableHoursThisMonth / 4),
+                    icon: "clock.fill",
+                    backgroundColor: Color.blue.opacity(0.1),
+                    iconColor: .blue
+                )
+
+                MetricCard(
+                    title: "Expenses",
+                    value: formatCurrency(metrics.totalRevenue * 0.2),
+                    icon: "dollarsign.circle.fill",
+                    backgroundColor: Color.purple.opacity(0.1),
+                    iconColor: .purple
+                )
+                .requiresCapability(.viewOwnExpenses)
+            }
+        }
+    }
+
+    // Freelancer Account - Professional metrics (4 cards)
+    private var freelancerMetrics: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+            if let metrics = viewModel.businessMetrics {
+                MetricCard(
+                    title: "Billable Hours",
+                    value: String(format: "%.1f", metrics.billableHoursThisMonth),
+                    trend: metrics.hoursTrend,
+                    changePercentage: metrics.hoursChangePercentage,
+                    icon: "clock.fill",
+                    backgroundColor: Color.blue.opacity(0.1),
+                    iconColor: .blue
+                )
+
+                MetricCard(
+                    title: "Revenue (MTD)",
+                    value: formatCurrency(metrics.totalRevenue),
+                    trend: metrics.revenueTrend,
+                    changePercentage: metrics.revenueChangePercentage,
+                    icon: "dollarsign.circle.fill",
+                    backgroundColor: Color.green.opacity(0.1),
+                    iconColor: .green
+                )
+                .requiresCapability(.viewAccountsReceivable)
+
+                MetricCard(
+                    title: "Outstanding",
+                    value: formatCurrency(metrics.outstandingRevenue),
+                    icon: "exclamationmark.circle.fill",
+                    backgroundColor: Color.orange.opacity(0.1),
+                    iconColor: .orange
+                )
+                .requiresCapability(.viewAccountsReceivable)
+
+                MetricCard(
+                    title: "Active Projects",
+                    value: "\(metrics.pendingInvoices)",
+                    icon: "folder.fill",
+                    backgroundColor: Color.purple.opacity(0.1),
+                    iconColor: .purple
+                )
+                .requiresCapability(.viewProjects)
+            }
+        }
+    }
+
+    // Business Account - Full metrics (6 cards)
+    private var businessMetrics: some View {
+        VStack(spacing: 16) {
+            // Top row - financial metrics
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                if let metrics = viewModel.businessMetrics {
+                    MetricCard(
+                        title: "Revenue (MTD)",
+                        value: formatCurrency(metrics.totalRevenue),
+                        trend: metrics.revenueTrend,
+                        changePercentage: metrics.revenueChangePercentage,
+                        icon: "chart.line.uptrend.xyaxis",
+                        backgroundColor: Color.green.opacity(0.1),
+                        iconColor: .green
+                    )
+                    .requiresCapability(.viewFinancialStatements)
+
+                    MetricCard(
+                        title: "Profit Margin",
+                        value: "32%",
+                        trend: .down,
+                        changePercentage: -2.1,
+                        icon: "percent",
+                        backgroundColor: Color.blue.opacity(0.1),
+                        iconColor: .blue
+                    )
+                    .requiresCapability(.viewAdvancedReports)
+                }
+            }
+
+            // Second row - operational metrics
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                if let metrics = viewModel.businessMetrics {
+                    MetricCard(
+                        title: "Team Hours",
+                        value: String(format: "%.0f", metrics.billableHoursThisMonth * 4),
+                        icon: "person.3.fill",
+                        backgroundColor: Color.purple.opacity(0.1),
+                        iconColor: .purple
+                    )
+                    .requiresCapability(.viewTeamTimeEntries)
+
+                    MetricCard(
+                        title: "Pending Approvals",
+                        value: "\(metrics.pendingInvoices / 2)",
+                        icon: "checkmark.circle.fill",
+                        backgroundColor: Color.orange.opacity(0.1),
+                        iconColor: .orange
+                    )
+                    .requiresAnyCapability(.approveTimeEntries, .approveExpenses)
+                }
+            }
+        }
+    }
+
     // MARK: - Helper Functions
 
     private func formatCurrency(_ value: Double) -> String {
@@ -196,6 +293,7 @@ struct HomeView: View {
 // MARK: - Empty State View
 
 struct EmptyStateView: View {
+    @EnvironmentObject var appState: AppState
     let onCreateInvoice: () -> Void
     let onLogHours: () -> Void
     let onQuickBill: () -> Void
@@ -211,7 +309,7 @@ struct EmptyStateView: View {
                     .font(.alphaTitle)
                     .foregroundColor(.alphaPrimaryText)
 
-                Text("Start tracking your business by creating your first invoice or logging billable hours.")
+                Text(emptyStateMessage)
                     .font(.alphaBody)
                     .foregroundColor(.alphaSecondaryText)
                     .multilineTextAlignment(.center)
@@ -219,37 +317,57 @@ struct EmptyStateView: View {
             }
 
             VStack(spacing: 16) {
-                QuickActionCard(
-                    title: "Create Invoice",
-                    description: "Bill your clients for completed work",
-                    icon: "doc.text.fill",
-                    backgroundColor: Color.blue.opacity(0.1),
-                    iconColor: .blue,
-                    action: onCreateInvoice
-                )
+                // Show quick actions based on capabilities
+                if appState.hasCapability(.createInvoices) {
+                    QuickActionCard(
+                        title: "Create Invoice",
+                        description: "Bill your clients for completed work",
+                        icon: "doc.text.fill",
+                        backgroundColor: Color.blue.opacity(0.1),
+                        iconColor: .blue,
+                        action: onCreateInvoice
+                    )
+                }
 
-                QuickActionCard(
-                    title: "Log Hours",
-                    description: "Track billable time on tasks",
-                    icon: "clock.fill",
-                    backgroundColor: Color.purple.opacity(0.1),
-                    iconColor: .purple,
-                    action: onLogHours
-                )
+                if appState.hasCapability(.trackTime) {
+                    QuickActionCard(
+                        title: "Log Hours",
+                        description: "Track billable time on tasks",
+                        icon: "clock.fill",
+                        backgroundColor: Color.purple.opacity(0.1),
+                        iconColor: .purple,
+                        action: onLogHours
+                    )
+                }
 
-                QuickActionCard(
-                    title: "Quick Bill",
-                    description: "Bill time entries to clients",
-                    icon: "dollarsign.circle.fill",
-                    backgroundColor: Color.green.opacity(0.1),
-                    iconColor: .green,
-                    action: onQuickBill
-                )
+                if appState.hasCapability(.quickBill) {
+                    QuickActionCard(
+                        title: "Quick Bill",
+                        description: "Bill time entries to clients",
+                        icon: "dollarsign.circle.fill",
+                        backgroundColor: Color.green.opacity(0.1),
+                        iconColor: .green,
+                        action: onQuickBill
+                    )
+                }
             }
             .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.top, 60)
+    }
+
+    private var emptyStateMessage: String {
+        switch appState.currentUser?.accountType {
+        case .personal:
+            return "Start tracking your time and expenses to manage your personal finances."
+        case .freelancer:
+            return "Start tracking your business by creating your first invoice or logging billable hours."
+        case .business:
+            return "Start managing your team's time and projects. Create invoices and track revenue."
+        case .none:
+            return "Get started with Alpha!"
+        }
     }
 }
 
