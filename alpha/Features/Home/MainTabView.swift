@@ -46,7 +46,7 @@ struct MainTabView: View {
                         .tag(tab.rawValue)
                 }
             }
-            .tint(.alphaPrimary)
+            .tint(Color(uiColor: .label)) // Adapts to dark/light mode
 
             // Context-aware Floating Action Button
             if let currentTab = visibleTabs.first(where: { $0.rawValue == selectedTab }),
@@ -77,11 +77,11 @@ struct MainTabView: View {
                                 Button(action: { showingCreateInvoice = true }) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 24, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Color(uiColor: .systemBackground))
                                         .frame(width: 60, height: 60)
                                         .background(
                                             Circle()
-                                                .fill(Color.alphaPrimary)
+                                                .fill(Color(uiColor: .label))
                                                 .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                                         )
                                 }
@@ -93,11 +93,11 @@ struct MainTabView: View {
                                 Button(action: { showingQuickBill = true }) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 24, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Color(uiColor: .systemBackground))
                                         .frame(width: 60, height: 60)
                                         .background(
                                             Circle()
-                                                .fill(Color.alphaPrimary)
+                                                .fill(Color(uiColor: .label))
                                                 .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                                         )
                                 }

@@ -8,7 +8,10 @@
 import SwiftUI
 
 extension Font {
-    // MARK: - Display
+    // MARK: - Typography System (Aligned with Figma: 400/500/600/700 weights)
+    // 400 = regular, 500 = medium, 600 = semibold, 700 = bold
+
+    // MARK: - Display (700 bold)
 
     /// Extra large display text (32pt, bold)
     static let alphaDisplayLarge = Font.system(size: 32, weight: .bold)
@@ -16,7 +19,7 @@ extension Font {
     /// Large display text (28pt, bold)
     static let alphaDisplay = Font.system(size: 28, weight: .bold)
 
-    // MARK: - Headline
+    // MARK: - Headline (600 semibold)
 
     /// Large headline (24pt, semibold)
     static let alphaHeadlineLarge = Font.system(size: 24, weight: .semibold)
@@ -27,7 +30,7 @@ extension Font {
     /// Small headline (18pt, semibold)
     static let alphaHeadlineSmall = Font.system(size: 18, weight: .semibold)
 
-    // MARK: - Title
+    // MARK: - Title (600 semibold)
 
     /// Large title (20pt, semibold)
     static let alphaTitleLarge = Font.system(size: 20, weight: .semibold)
@@ -38,7 +41,7 @@ extension Font {
     /// Small title (16pt, semibold)
     static let alphaTitleSmall = Font.system(size: 16, weight: .semibold)
 
-    // MARK: - Body
+    // MARK: - Body (400 regular, 500 medium)
 
     /// Large body text (17pt, regular)
     static let alphaBodyLarge = Font.system(size: 17, weight: .regular)
@@ -48,6 +51,9 @@ extension Font {
 
     /// Small body text (14pt, regular)
     static let alphaBodySmall = Font.system(size: 14, weight: .regular)
+
+    /// Medium body text (16pt, medium) - for emphasis
+    static let alphaBodyMedium = Font.system(size: 16, weight: .medium)
 
     // MARK: - Label
 

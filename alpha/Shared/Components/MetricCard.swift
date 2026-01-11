@@ -10,11 +10,29 @@ import SwiftUI
 struct MetricCard: View {
     let title: String
     let value: String
-    let trend: TrendDirection
-    let changePercentage: Double
+    let trend: TrendDirection?
+    let changePercentage: Double?
     let icon: String
     let backgroundColor: Color
     let iconColor: Color
+
+    init(
+        title: String,
+        value: String,
+        trend: TrendDirection? = nil,
+        changePercentage: Double? = nil,
+        icon: String,
+        backgroundColor: Color,
+        iconColor: Color
+    ) {
+        self.title = title
+        self.value = value
+        self.trend = trend
+        self.changePercentage = changePercentage
+        self.icon = icon
+        self.backgroundColor = backgroundColor
+        self.iconColor = iconColor
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -39,14 +57,16 @@ struct MetricCard: View {
                 .foregroundColor(.alphaPrimaryText)
                 .lineLimit(1)
 
-            // Trend indicator at bottom
-            HStack(spacing: 4) {
-                Image(systemName: trend.icon)
-                    .font(.system(size: 12))
-                Text(formatPercentage(changePercentage))
-                    .font(.system(size: 13, weight: .medium))
+            // Trend indicator at bottom (only if trend is provided)
+            if let trend = trend, let changePercentage = changePercentage {
+                HStack(spacing: 4) {
+                    Image(systemName: trend.icon)
+                        .font(.system(size: 12))
+                    Text(formatPercentage(changePercentage))
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(trend.color)
             }
-            .foregroundColor(trend.color)
         }
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
         .padding(16)

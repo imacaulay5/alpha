@@ -66,7 +66,7 @@ struct ExpandableFAB: View {
                 }
 
                 // Primary FAB button
-                Button(action: {
+                Button {
                     // Only trigger primary action if it wasn't a long press
                     if !isLongPressing {
                         if isExpanded {
@@ -80,14 +80,14 @@ struct ExpandableFAB: View {
                         }
                     }
                     isLongPressing = false
-                }) {
+                } label: {
                     Image(systemName: isExpanded ? "xmark" : "plus")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(uiColor: .systemBackground))
                         .frame(width: 60, height: 60)
                         .background(
                             Circle()
-                                .fill(Color.alphaPrimary)
+                                .fill(Color(uiColor: .label))
                                 .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                         )
                         .scaleEffect(isPressing ? 0.9 : 1.0)

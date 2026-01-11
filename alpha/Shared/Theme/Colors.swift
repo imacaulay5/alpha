@@ -8,16 +8,43 @@
 import SwiftUI
 
 extension Color {
-    // MARK: - Primary Colors
+    // MARK: - Primary Brand Colors (from Figma template)
 
-    /// Primary brand color (from Assets.xcassets)
-    static let alphaPrimary = Color("BrandPrimary")
+    /// Deep black-purple primary color (#030213)
+    static let alphaPrimary = Color(hex: "030213")
 
-    /// Secondary brand color (from Assets.xcassets)
-    static let alphaSecondary = Color("BrandSecondary")
+    /// Lighter variant for primary elements
+    static let alphaPrimaryLight = Color(hex: "1A1B2E")
 
-    /// Accent color for UI elements (from Assets.xcassets)
-    static let alphaAccent = Color("AccentColor")
+    /// Light lavender secondary color
+    static let alphaSecondary = Color(hex: "F3F3F5")
+
+    /// Accent color for UI elements
+    static let alphaAccent = Color(hex: "E9EBEF")
+
+    // MARK: - Status Colors (Figma OKLCH palette)
+
+    /// Success green - for approved, paid, positive states
+    static let alphaSuccess = Color(hex: "10B981")
+
+    /// Warning amber - for pending, overdue states
+    static let alphaWarning = Color(hex: "F59E0B")
+
+    /// Error red - for rejected, failed states
+    static let alphaError = Color(hex: "EF4444")
+
+    /// Info blue - for informational states
+    static let alphaInfo = Color(hex: "3B82F6")
+
+    // MARK: - Semantic State Colors
+
+    static let alphaDraft = Color(hex: "6B7280")        // Gray
+    static let alphaPending = Color(hex: "6366F1")      // Indigo
+    static let alphaApproved = Color(hex: "10B981")     // Green
+    static let alphaRejected = Color(hex: "EF4444")     // Red
+    static let alphaPaid = Color(hex: "8B5CF6")         // Purple
+    static let alphaOverdue = Color(hex: "DC2626")      // Dark red
+    static let alphaInvoiced = Color(hex: "8B5CF6")     // Purple
 
     // MARK: - Text Colors
 
@@ -30,7 +57,10 @@ extension Color {
     /// Tertiary text color (lightest, for hints)
     static let alphaTertiaryText = Color(uiColor: .tertiaryLabel)
 
-    // MARK: - Background Colors
+    /// Placeholder text color
+    static let alphaPlaceholderText = Color(uiColor: .placeholderText)
+
+    // MARK: - Background Colors (Dark mode aware)
 
     /// Main background color
     static let alphaBackground = Color(uiColor: .systemBackground)
@@ -41,75 +71,71 @@ extension Color {
     /// Grouped background (for list backgrounds)
     static let alphaGroupedBackground = Color(uiColor: .systemGroupedBackground)
 
-    // MARK: - Status Colors
+    /// Input background
+    static let alphaInputBackground = Color(hex: "F3F3F5")
 
-    /// Success color (green)
-    static let alphaSuccess = Color.green
+    // MARK: - Border & Divider
 
-    /// Warning color (orange)
-    static let alphaWarning = Color.orange
+    /// Border color
+    static let alphaBorder = Color(uiColor: .separator)
 
-    /// Error color (red)
-    static let alphaError = Color.red
+    /// Divider/separator color
+    static let alphaDivider = Color(uiColor: .separator)
 
-    /// Info color (blue)
-    static let alphaInfo = Color.blue
+    // MARK: - Chart Colors (from Figma)
 
-    // MARK: - Time Entry Status Colors
+    static let alphaChart1 = Color(hex: "F97316")  // Orange
+    static let alphaChart2 = Color(hex: "3B82F6")  // Blue
+    static let alphaChart3 = Color(hex: "8B5CF6")  // Purple
+    static let alphaChart4 = Color(hex: "FBBF24")  // Yellow
+    static let alphaChart5 = Color(hex: "F59E0B")  // Amber
+
+    // MARK: - Status-Aware Color Functions
 
     static func timeEntryStatusColor(_ status: TimeEntryStatus) -> Color {
         switch status {
         case .draft:
-            return Color.gray
+            return .alphaDraft
         case .submitted:
-            return Color.blue
+            return .alphaPending
         case .approved:
-            return Color.green
+            return .alphaApproved
         case .rejected:
-            return Color.red
+            return .alphaRejected
         case .invoiced:
-            return Color.purple
+            return .alphaInvoiced
         }
     }
-
-    // MARK: - Expense Status Colors
 
     static func expenseStatusColor(_ status: ExpenseStatus) -> Color {
         switch status {
         case .draft:
-            return Color.gray
+            return .alphaDraft
         case .submitted:
-            return Color.blue
+            return .alphaPending
         case .approved:
-            return Color.green
+            return .alphaApproved
         case .rejected:
-            return Color.red
+            return .alphaRejected
         case .reimbursed:
-            return Color.purple
+            return .alphaPaid
         }
     }
-
-    // MARK: - Invoice Status Colors
 
     static func invoiceStatusColor(_ status: InvoiceStatus) -> Color {
         switch status {
         case .draft:
-            return Color.gray
+            return .alphaDraft
         case .sent:
-            return Color.blue
+            return .alphaPending
         case .paid:
-            return Color.green
+            return .alphaPaid
         case .overdue:
-            return Color.red
+            return .alphaOverdue
         case .cancelled:
-            return Color.gray
+            return .alphaRejected
         }
     }
-
-    // MARK: - Divider
-
-    /// Divider/separator color
-    static let alphaDivider = Color(uiColor: .separator)
 }
 
 // MARK: - Helper for hex colors (if needed later)

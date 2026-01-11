@@ -303,7 +303,7 @@ struct EmptyStateView: View {
             VStack(spacing: 16) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 64))
-                    .foregroundColor(.alphaAccent.opacity(0.6))
+                    .foregroundColor(.alphaSecondaryText.opacity(0.5))
 
                 Text("Welcome to Alpha!")
                     .font(.alphaTitle)
