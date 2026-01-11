@@ -43,9 +43,14 @@ struct SettingsView: View {
                     .padding(.vertical, 8)
                 }
 
-                // Organization Section
-                if let org = appState.organization {
+                // Organization Section - Business accounts only
+                if let org = appState.organization,
+                   appState.hasCapability(.manageOrganization) {
                     Section("Organization") {
+                        NavigationLink(destination: Text("Organization Settings")) {
+                            Label("Organization Settings", systemImage: "building.2")
+                        }
+
                         HStack {
                             Text("Company")
                             Spacer()
@@ -64,6 +69,26 @@ struct SettingsView: View {
                     }
                 }
 
+                // Team Section - For users who can manage team
+                if appState.currentUser?.canManageTeam == true {
+                    Section("Team") {
+                        NavigationLink(destination: Text("Team Members")) {
+                            Label("Team Members", systemImage: "person.3")
+                        }
+                        .requiresCapability(.manageUsers)
+
+                        NavigationLink(destination: Text("Invite Users")) {
+                            Label("Invite Users", systemImage: "person.badge.plus")
+                        }
+                        .requiresCapability(.inviteTeamMembers)
+
+                        NavigationLink(destination: Text("Audit Log")) {
+                            Label("Audit Log", systemImage: "list.clipboard")
+                        }
+                        .requiresCapability(.viewAuditLog)
+                    }
+                }
+
                 // Preferences Section
                 Section("Preferences") {
                     NavigationLink(destination: Text("Notifications")) {
@@ -79,14 +104,33 @@ struct SettingsView: View {
                     }
                 }
 
-                // Business Section
-                Section("Business") {
-                    NavigationLink(destination: ContactsListView()) {
-                        Label("Contacts", systemImage: "person.2")
-                    }
+                // Business Section - Capability-based items
+                if appState.hasCapability(.viewClients) ||
+                   appState.hasCapability(.configureBillingRules) {
+                    Section("Business") {
+                        if appState.hasCapability(.viewClients) {
+                            NavigationLink(destination: ContactsListView()) {
+                                Label("Contacts", systemImage: "person.2")
+                            }
+                        }
 
-                    NavigationLink(destination: BillingRulesView()) {
-                        Label("Billing Rules", systemImage: "chart.bar.doc.horizontal")
+                        NavigationLink(destination: BillingRulesView()) {
+                            Label("Billing Rules", systemImage: "chart.bar.doc.horizontal")
+                        }
+                        .requiresCapability(.configureBillingRules)
+                    }
+                }
+
+                // Integrations Section - Advanced users
+                if appState.hasCapability(.manageIntegrations) {
+                    Section("Integrations") {
+                        NavigationLink(destination: Text("Connected Accounts")) {
+                            Label("Connected Accounts", systemImage: "link")
+                        }
+
+                        NavigationLink(destination: Text("API Settings")) {
+                            Label("API Settings", systemImage: "chevron.left.forwardslash.chevron.right")
+                        }
                     }
                 }
 
@@ -95,6 +139,7 @@ struct SettingsView: View {
                     NavigationLink(destination: Text("Export Data")) {
                         Label("Export Data", systemImage: "square.and.arrow.up")
                     }
+                    .requiresCapability(.exportAllData)
 
                     NavigationLink(destination: Text("Offline Data")) {
                         Label("Offline Data", systemImage: "arrow.down.circle")
