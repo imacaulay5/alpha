@@ -116,7 +116,7 @@ struct LoginView: View {
                         Image(systemName: "timer.circle.fill")
                             .resizable()
                             .frame(width: 80, height: 80)
-                            .foregroundColor(.alphaPrimary)
+                            .foregroundColor(Color(uiColor: .label))
 
                         Text("Alpha")
                             .font(.alphaDisplayLarge)
@@ -136,18 +136,20 @@ struct LoginView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            TextField("you@example.com", text: $viewModel.email)
-                                .textFieldStyle(.plain)
-                                .autocapitalization(.none)
-                                .keyboardType(.emailAddress)
-                                .textContentType(.emailAddress)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.email,
+                                placeholder: "you@example.com",
+                                keyboardType: .emailAddress,
+                                autocapitalization: .none,
+                                textContentType: .emailAddress
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Password Field
@@ -156,16 +158,19 @@ struct LoginView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            SecureField("Enter your password", text: $viewModel.password)
-                                .textFieldStyle(.plain)
-                                .textContentType(.password)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.password,
+                                placeholder: "Enter your password",
+                                textContentType: .password,
+                                isSecure: true
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Error Message
@@ -203,7 +208,7 @@ struct LoginView: View {
                         }) {
                             Text("Forgot Password?")
                                 .font(.alphaBodySmall)
-                                .foregroundColor(.alphaPrimary)
+                                .foregroundColor(.alphaInfo)
                         }
                         .padding(.top, 8)
                     }
@@ -221,7 +226,7 @@ struct LoginView: View {
                             Text("Sign Up")
                                 .font(.alphaBodySmall)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.alphaPrimary)
+                                .foregroundColor(.alphaInfo)
                         }
                     }
                     .padding(.top, 32)

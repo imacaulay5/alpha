@@ -80,7 +80,7 @@ struct SignUpView: View {
                         Image(systemName: "person.badge.plus.fill")
                             .resizable()
                             .frame(width: 80, height: 80)
-                            .foregroundColor(.alphaPrimary)
+                            .foregroundColor(Color(uiColor: .label))
 
                         Text("Create Account")
                             .font(.alphaDisplayLarge)
@@ -100,16 +100,18 @@ struct SignUpView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            TextField("John Doe", text: $viewModel.name)
-                                .textFieldStyle(.plain)
-                                .textContentType(.name)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.name,
+                                placeholder: "John Doe",
+                                textContentType: .name
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Email Field
@@ -118,18 +120,20 @@ struct SignUpView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            TextField("you@example.com", text: $viewModel.email)
-                                .textFieldStyle(.plain)
-                                .autocapitalization(.none)
-                                .keyboardType(.emailAddress)
-                                .textContentType(.emailAddress)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.email,
+                                placeholder: "you@example.com",
+                                keyboardType: .emailAddress,
+                                autocapitalization: .none,
+                                textContentType: .emailAddress
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Password Field
@@ -138,16 +142,19 @@ struct SignUpView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            SecureField("Minimum 6 characters", text: $viewModel.password)
-                                .textFieldStyle(.plain)
-                                .textContentType(.newPassword)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.password,
+                                placeholder: "Minimum 6 characters",
+                                textContentType: .newPassword,
+                                isSecure: true
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Confirm Password Field
@@ -156,16 +163,19 @@ struct SignUpView: View {
                                 .font(.alphaLabel)
                                 .foregroundColor(.alphaSecondaryText)
 
-                            SecureField("Re-enter your password", text: $viewModel.confirmPassword)
-                                .textFieldStyle(.plain)
-                                .textContentType(.newPassword)
-                                .padding()
-                                .background(Color.alphaCardBackground)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.alphaDivider, lineWidth: 1)
-                                )
+                            AlphaTextField(
+                                text: $viewModel.confirmPassword,
+                                placeholder: "Re-enter your password",
+                                textContentType: .newPassword,
+                                isSecure: true
+                            )
+                            .padding()
+                            .background(Color.alphaCardBackground)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.alphaDivider, lineWidth: 1)
+                            )
                         }
 
                         // Error Message
@@ -211,7 +221,7 @@ struct SignUpView: View {
                             Text("Sign In")
                                 .font(.alphaBodySmall)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.alphaPrimary)
+                                .foregroundColor(.alphaInfo)
                         }
                     }
                     .padding(.top, 32)
