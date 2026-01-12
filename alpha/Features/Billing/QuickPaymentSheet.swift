@@ -13,6 +13,8 @@ struct QuickPaymentSheet: View {
     @State private var paymentMethod = "BANK_TRANSFER"
     @State private var reference = ""
     @State private var paymentDate = Date()
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     private let paymentMethods = [
         ("BANK_TRANSFER", "Bank Transfer"),
@@ -22,25 +24,45 @@ struct QuickPaymentSheet: View {
         ("OTHER", "Other")
     ]
 
+    private let apiClient = APIClient.shared
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Payment Details") {
+                Section {
                     TextField("Amount", text: $amount)
                         .keyboardType(.decimalPad)
 
                     DatePicker("Date", selection: $paymentDate, displayedComponents: .date)
 
                     TextField("Reference/Invoice #", text: $reference)
+                } header: {
+                    Text("Payment Details")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
 
-                Section("Payment Method") {
+                Section {
                     Picker("Method", selection: $paymentMethod) {
                         ForEach(paymentMethods, id: \.0) { code, name in
                             Text(name).tag(code)
                         }
                     }
                     .pickerStyle(.menu)
+                } header: {
+                    Text("Payment Method")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
+                }
+
+                if let errorMessage = errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
                 }
             }
             .navigationTitle("Quick Payment")
@@ -54,14 +76,66 @@ struct QuickPaymentSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Record") {
-                        // TODO: Record payment logic
-                        // apiClient.post("/payments", data: ...)
-                        isPresented = false
+                        Task {
+                            await recordPayment()
+                        }
                     }
-                    .disabled(amount.isEmpty)
+                    .disabled(amount.isEmpty || isSubmitting)
                 }
             }
         }
+    }
+
+    // MARK: - Payment Recording
+
+    private func recordPayment() async {
+        guard let amountValue = Double(amount), amountValue > 0 else {
+            errorMessage = "Please enter a valid amount"
+            return
+        }
+
+        isSubmitting = true
+        errorMessage = nil
+
+        do {
+            let formatter = ISO8601DateFormatter()
+            let dateString = formatter.string(from: paymentDate)
+
+            let request = CreatePaymentRequest(
+                amount: amountValue,
+                paymentMethod: paymentMethod,
+                reference: reference,
+                paymentDate: dateString
+            )
+
+            let _: PaymentResponse = try await apiClient.post("/payments", body: request)
+
+            isPresented = false
+        } catch {
+            errorMessage = "Failed to record payment: \(error.localizedDescription)"
+        }
+
+        isSubmitting = false
+    }
+
+    // MARK: - Data Models
+
+    private struct CreatePaymentRequest: Codable {
+        let amount: Double
+        let paymentMethod: String
+        let reference: String
+        let paymentDate: String
+
+        enum CodingKeys: String, CodingKey {
+            case amount
+            case paymentMethod = "payment_method"
+            case reference
+            case paymentDate = "payment_date"
+        }
+    }
+
+    private struct PaymentResponse: Codable {
+        let id: String
     }
 }
 

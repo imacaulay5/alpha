@@ -16,7 +16,7 @@ enum AlphaButtonStyle {
     var backgroundColor: Color {
         switch self {
         case .primary:
-            return .alphaPrimary
+            return Color(uiColor: .label) // Adaptive for light/dark mode
         case .secondary:
             return .alphaSecondary
         case .outline, .text:
@@ -27,9 +27,9 @@ enum AlphaButtonStyle {
     var foregroundColor: Color {
         switch self {
         case .primary, .secondary:
-            return .white
+            return Color(uiColor: .systemBackground) // Inverted for contrast
         case .outline, .text:
-            return .alphaPrimary
+            return Color(uiColor: .label)
         }
     }
 

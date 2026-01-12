@@ -26,9 +26,9 @@ enum AccountType: String, Codable, CaseIterable {
     var description: String {
         switch self {
         case .personal:
-            return "Track your time and finances"
+            return "Track your finances and bills"
         case .freelancer:
-            return "Manage clients and invoices"
+            return "Log hours and bill clients"
         case .business:
             return "Track team time and projects"
         }
@@ -69,17 +69,15 @@ extension AccountType {
         switch self {
         case .personal:
             return [
-                // Time & Basic Tracking
-                .trackTime,
-                .viewOwnTimeEntries,
-                .editOwnTimeEntries,
+                // Financial Management (Personal Focus)
+                .quickBill,
+                .recordPayments,
 
                 // Basic Invoicing (for side work)
                 .createInvoices,
                 .sendInvoices,
                 .viewInvoices,
                 .editInvoices,
-                .recordPayments,
 
                 // Personal Expenses
                 .submitExpenses,

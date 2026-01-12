@@ -57,17 +57,15 @@ struct MainTabView: View {
                         Spacer()
 
                         switch currentTab {
-                        case .home: // Home tab - Expandable menu with capability-filtered actions
+                        case .home: // Home tab - Context-aware primary action with expandable menu
                             let actions = homeActions.filter { action in
                                 guard let required = action.requiredCapability else { return true }
                                 return appState.hasCapability(required)
                             }
 
-                            if !actions.isEmpty {
+                            if !actions.isEmpty || appState.hasCapability(.trackTime) {
                                 ExpandableFAB(
-                                    primaryAction: {
-                                        showingQuickEntry = true
-                                    },
+                                    primaryAction: primaryHomeFABAction,
                                     secondaryActions: actions
                                 )
                             }
@@ -155,6 +153,13 @@ struct MainTabView: View {
                 action: { showingCreateInvoice = true }
             ),
             FABAction(
+                icon: "doc.text.fill",
+                label: "Quick Bill",
+                color: .purple,
+                requiredCapability: .quickBill,
+                action: { showingQuickBill = true }
+            ),
+            FABAction(
                 icon: "creditcard.fill",
                 label: "Quick Payment",
                 color: .orange,
@@ -162,6 +167,27 @@ struct MainTabView: View {
                 action: { showingQuickPayment = true }
             )
         ]
+    }
+
+    // Primary FAB action - context-aware based on account type
+    private var primaryHomeFABAction: () -> Void {
+        // Freelancer+ accounts: Log Hours (time tracking)
+        if appState.hasCapability(.trackTime) {
+            return { showingQuickEntry = true }
+        }
+
+        // Personal accounts: Quick Bill (most relevant for finance focus)
+        if appState.hasCapability(.quickBill) {
+            return { showingQuickBill = true }
+        }
+
+        // Fallback: Create Invoice
+        if appState.hasCapability(.createInvoices) {
+            return { showingCreateInvoice = true }
+        }
+
+        // Last resort: Quick Payment
+        return { showingQuickPayment = true }
     }
 }
 

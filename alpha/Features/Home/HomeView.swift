@@ -152,26 +152,31 @@ struct HomeView: View {
         }
     }
 
-    // Personal Account - Simple metrics (2 cards)
+    // Personal Account - Finance-focused metrics (2 cards)
     private var personalMetrics: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
             if let metrics = viewModel.businessMetrics {
                 MetricCard(
-                    title: "Hours This Week",
-                    value: String(format: "%.1f", metrics.billableHoursThisMonth / 4),
-                    icon: "clock.fill",
+                    title: "Bills This Month",
+                    value: formatCurrency(metrics.totalBills ?? 0),
+                    trend: metrics.billsTrend,
+                    changePercentage: metrics.billsChangePercentage ?? 0,
+                    icon: "doc.text.fill",
                     backgroundColor: Color.blue.opacity(0.1),
                     iconColor: .blue
                 )
+                .requiresCapability(.quickBill)
 
                 MetricCard(
-                    title: "Expenses",
-                    value: formatCurrency(metrics.totalRevenue * 0.2),
+                    title: "Payments",
+                    value: formatCurrency(metrics.totalPayments ?? 0),
+                    trend: metrics.paymentsTrend,
+                    changePercentage: metrics.paymentsChangePercentage ?? 0,
                     icon: "dollarsign.circle.fill",
-                    backgroundColor: Color.purple.opacity(0.1),
-                    iconColor: .purple
+                    backgroundColor: Color.green.opacity(0.1),
+                    iconColor: .green
                 )
-                .requiresCapability(.viewOwnExpenses)
+                .requiresCapability(.recordPayments)
             }
         }
     }
@@ -257,7 +262,9 @@ struct HomeView: View {
                 if let metrics = viewModel.businessMetrics {
                     MetricCard(
                         title: "Team Hours",
-                        value: String(format: "%.0f", metrics.billableHoursThisMonth * 4),
+                        value: String(format: "%.0f", metrics.teamHours ?? 0),
+                        trend: metrics.teamHoursTrend,
+                        changePercentage: metrics.teamHoursChangePercentage ?? 0,
                         icon: "person.3.fill",
                         backgroundColor: Color.purple.opacity(0.1),
                         iconColor: .purple
@@ -266,7 +273,9 @@ struct HomeView: View {
 
                     MetricCard(
                         title: "Pending Approvals",
-                        value: "\(metrics.pendingInvoices / 2)",
+                        value: "\(metrics.pendingApprovals ?? 0)",
+                        trend: metrics.approvalsTrend,
+                        changePercentage: metrics.approvalsChangePercentage ?? 0,
                         icon: "checkmark.circle.fill",
                         backgroundColor: Color.orange.opacity(0.1),
                         iconColor: .orange
@@ -360,9 +369,9 @@ struct EmptyStateView: View {
     private var emptyStateMessage: String {
         switch appState.currentUser?.accountType {
         case .personal:
-            return "Start tracking your time and expenses to manage your personal finances."
+            return "Track bills, payments, and personal expenses to manage your finances."
         case .freelancer:
-            return "Start tracking your business by creating your first invoice or logging billable hours."
+            return "Log billable hours, create invoices, and track client payments."
         case .business:
             return "Start managing your team's time and projects. Create invoices and track revenue."
         case .none:

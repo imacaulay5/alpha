@@ -61,12 +61,12 @@ struct CreateInvoiceSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Client Information") {
+                Section {
                     if isLoadingContacts {
                         HStack {
                             ProgressView()
                             Text("Loading contacts...")
-                                .foregroundColor(.alphaSecondaryText)
+                                .foregroundColor(.secondary)
                         }
                     } else {
                         Picker("Select Contact", selection: $selectedContact) {
@@ -78,7 +78,6 @@ struct CreateInvoiceSheet: View {
 
                         Button(action: { showingNewContact = true }) {
                             Label("Add New Contact", systemImage: "plus.circle.fill")
-                                .foregroundColor(.alphaPrimary)
                         }
 
                         if let contact = selectedContact {
@@ -96,9 +95,14 @@ struct CreateInvoiceSheet: View {
                             }
                         }
                     }
+                } header: {
+                    Text("Client Information")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
 
-                Section("Line Items") {
+                Section {
                     ForEach($lineItems) { $item in
                         VStack(spacing: 12) {
                             TextField("Description", text: $item.description)
@@ -151,7 +155,6 @@ struct CreateInvoiceSheet: View {
 
                     Button(action: addLineItem) {
                         Label("Add Line Item", systemImage: "plus.circle.fill")
-                            .foregroundColor(.alphaPrimary)
                     }
 
                     HStack {
@@ -162,16 +165,25 @@ struct CreateInvoiceSheet: View {
                         Text(totalAmount, format: .currency(code: "USD"))
                             .font(.alphaTitle)
                             .fontWeight(.bold)
-                            .foregroundColor(.alphaPrimary)
                     }
                     .padding(.vertical, 8)
+                } header: {
+                    Text("Line Items")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
 
-                Section("Additional Details") {
+                Section {
                     DatePicker("Due Date", selection: $dueDate, displayedComponents: .date)
 
-                    TextField("Notes (Optional)", text: $notes, axis: .vertical)
+                    TextField("Notes", text: $notes, prompt: Text("Optional"), axis: .vertical)
                         .lineLimit(3...6)
+                } header: {
+                    Text("Additional Details")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
             }
             .navigationTitle("Create Invoice")

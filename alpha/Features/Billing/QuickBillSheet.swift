@@ -61,12 +61,12 @@ struct QuickBillSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Vendor Information") {
+                Section {
                     if isLoadingContacts {
                         HStack {
                             ProgressView()
                             Text("Loading contacts...")
-                                .foregroundColor(.alphaSecondaryText)
+                                .foregroundColor(.secondary)
                         }
                     } else {
                         Picker("Select Vendor", selection: $selectedVendor) {
@@ -78,7 +78,6 @@ struct QuickBillSheet: View {
 
                         Button(action: { showingNewContact = true }) {
                             Label("Add New Vendor", systemImage: "plus.circle.fill")
-                                .foregroundColor(.alphaPrimary)
                         }
 
                         if let vendor = selectedVendor {
@@ -96,9 +95,14 @@ struct QuickBillSheet: View {
                             }
                         }
                     }
+                } header: {
+                    Text("Vendor Information")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
 
-                Section("Line Items") {
+                Section {
                     ForEach($lineItems) { $item in
                         VStack(spacing: 12) {
                             TextField("Description", text: $item.description)
@@ -124,7 +128,6 @@ struct QuickBillSheet: View {
                                         }
                                     }
                                     .pickerStyle(.menu)
-                                    .tint(.alphaPrimary)
                                 }
                             }
 
@@ -143,7 +146,6 @@ struct QuickBillSheet: View {
 
                     Button(action: addLineItem) {
                         Label("Add Line Item", systemImage: "plus.circle.fill")
-                            .foregroundColor(.alphaPrimary)
                     }
 
                     HStack {
@@ -154,13 +156,22 @@ struct QuickBillSheet: View {
                         Text(totalAmount, format: .currency(code: "USD"))
                             .font(.alphaTitle)
                             .fontWeight(.bold)
-                            .foregroundColor(.alphaPrimary)
                     }
                     .padding(.vertical, 8)
+                } header: {
+                    Text("Line Items")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
 
-                Section("Additional Details") {
+                Section {
                     DatePicker("Date", selection: $expenseDate, displayedComponents: .date)
+                } header: {
+                    Text("Additional Details")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
                 }
             }
             .navigationTitle("Quick Bill")

@@ -121,6 +121,26 @@ struct SettingsView: View {
                     }
                 }
 
+                // Tax & Compliance - Freelancer+ only
+                if appState.hasCapability(.viewTaxDashboard) &&
+                   appState.currentUser?.accountType == .freelancer {
+                    Section("Tax & Compliance") {
+                        NavigationLink(destination: TaxComplianceView()) {
+                            Label("Tax Dashboard", systemImage: "doc.plaintext.fill")
+                        }
+
+                        NavigationLink(destination: Text("Tax Estimates")) {
+                            Label("Tax Estimates", systemImage: "calculator")
+                        }
+                        .requiresCapability(.generateTaxEstimates)
+
+                        NavigationLink(destination: Text("Tax Documents")) {
+                            Label("Tax Documents", systemImage: "folder.fill")
+                        }
+                        .requiresCapability(.exportTaxDocuments)
+                    }
+                }
+
                 // Integrations Section - Advanced users
                 if appState.hasCapability(.manageIntegrations) {
                     Section("Integrations") {
