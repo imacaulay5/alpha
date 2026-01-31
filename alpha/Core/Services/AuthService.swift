@@ -377,22 +377,13 @@ class AuthService {
         print("✅ AuthService.setupOrganization: Session found for user: \(userId)")
         print("📧 AuthService.setupOrganization: Email: \(email)")
         print("🔐 AuthService.setupOrganization: Email confirmed: \(session.user.emailConfirmedAt != nil)")
-        print("🔑 AuthService.setupOrganization: Access token: \(session.accessToken.prefix(30))...")
-        print("🔑 AuthService.setupOrganization: Token type: \(session.tokenType)")
-
-        // Verify the supabase client is using this session
-        if let currentClientSession = supabase.auth.currentSession {
-            print("✅ AuthService.setupOrganization: Supabase client has session: \(currentClientSession.user.id)")
-            print("🔑 AuthService.setupOrganization: Client token matches: \(currentClientSession.accessToken == session.accessToken)")
-        } else {
-            print("⚠️ AuthService.setupOrganization: WARNING - Supabase client has NO session!")
-        }
 
         // Step 1: Create organization
         print("🏢 AuthService.setupOrganization: Creating organization '\(companyName)'")
         let orgInsert = OrganizationInsert(
             name: companyName,
-            email: email
+            email: email,
+            ownerId: userId.uuidString
         )
 
         do {
@@ -474,6 +465,13 @@ enum AuthError: Error, LocalizedError {
 struct OrganizationInsert: Codable {
     let name: String
     let email: String
+    let ownerId: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case email
+        case ownerId = "owner_id"
+    }
 }
 
 struct UserInsert: Codable {

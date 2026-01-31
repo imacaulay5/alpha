@@ -15,12 +15,14 @@ struct AlphaTextField: UIViewRepresentable {
     var autocapitalization: UITextAutocapitalizationType = .sentences
     var textContentType: UITextContentType?
     var isSecure: Bool = false
+    var disableAutocorrection: Bool = false
 
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
         textField.delegate = context.coordinator
         textField.keyboardType = keyboardType
         textField.autocapitalizationType = autocapitalization
+        textField.autocorrectionType = disableAutocorrection ? .no : .default
         textField.textContentType = textContentType
         textField.isSecureTextEntry = isSecure
 

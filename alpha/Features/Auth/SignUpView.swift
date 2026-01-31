@@ -125,7 +125,8 @@ struct SignUpView: View {
                                 placeholder: "you@example.com",
                                 keyboardType: .emailAddress,
                                 autocapitalization: .none,
-                                textContentType: .emailAddress
+                                textContentType: .emailAddress,
+                                disableAutocorrection: true
                             )
                             .padding()
                             .background(Color.alphaCardBackground)
