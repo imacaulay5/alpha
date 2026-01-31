@@ -114,30 +114,45 @@ struct BillingView: View {
     @State private var selectedTab = 0
     @State private var selectedInvoice: Invoice?
     @State private var showingCreateInvoice = false
+    @State private var showingBillingRules = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Tab Picker
-                Picker("", selection: $selectedTab) {
-                    Text("Invoices").tag(0)
-                    if appState.hasCapability(.configureBillingRules) {
-                        Text("Rules").tag(1)
+                // Tab Picker - only show if user has expense capabilities
+                if appState.hasCapability(.submitExpenses) || appState.hasCapability(.approveExpenses) {
+                    Picker("", selection: $selectedTab) {
+                        Text("Invoices").tag(0)
+                        Text("Expenses").tag(1)
                     }
+                    .pickerStyle(.segmented)
+                    .padding()
                 }
-                .pickerStyle(.segmented)
-                .padding()
 
                 // Content
                 if selectedTab == 0 {
                     invoicesContent
                 } else {
-                    BillingRulesContent()
+                    ExpenseViewContent()
                 }
             }
             .background(Color.alphaGroupedBackground)
             .navigationTitle("Billing")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if appState.hasCapability(.configureBillingRules) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button(action: { showingBillingRules = true }) {
+                                Label("Billing Rules", systemImage: "gearshape")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 17, weight: .medium))
+                        }
+                    }
+                }
+            }
             .sheet(item: $selectedInvoice) { invoice in
                 InvoiceDetailSheet(invoice: invoice, onUpdate: {
                     Task {
@@ -147,6 +162,9 @@ struct BillingView: View {
             }
             .sheet(isPresented: $showingCreateInvoice) {
                 CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+            }
+            .sheet(isPresented: $showingBillingRules) {
+                BillingRulesSheet(isPresented: $showingBillingRules)
             }
         }
     }
@@ -512,6 +530,27 @@ struct BillingRulesContent: View {
             if viewModel.isLoading {
                 ProgressView()
             }
+        }
+    }
+}
+
+// MARK: - Billing Rules Sheet
+
+struct BillingRulesSheet: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            BillingRulesContent()
+                .navigationTitle("Billing Rules")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isPresented = false
+                        }
+                    }
+                }
         }
     }
 }
