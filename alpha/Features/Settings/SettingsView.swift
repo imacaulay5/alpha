@@ -85,19 +85,11 @@ struct SettingsView: View {
                 }
 
                 // Business Section - Capability-based items
-                if appState.hasCapability(.viewClients) ||
-                   appState.hasCapability(.configureBillingRules) {
+                if appState.hasCapability(.viewClients) {
                     Section("Business") {
-                        if appState.hasCapability(.viewClients) {
-                            NavigationLink(destination: ContactsListView()) {
-                                Label("Contacts", systemImage: "person.2")
-                            }
+                        NavigationLink(destination: ContactsListView()) {
+                            Label("Contacts", systemImage: "person.2")
                         }
-
-                        NavigationLink(destination: BillingRulesView()) {
-                            Label("Billing Rules", systemImage: "chart.bar.doc.horizontal")
-                        }
-                        .requiresCapability(.configureBillingRules)
                     }
                 }
 
