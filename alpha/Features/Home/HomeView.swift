@@ -48,6 +48,7 @@ struct HomeView: View {
     @State private var showingCreateInvoice = false
     @State private var showingQuickEntry = false
     @State private var showingQuickBill = false
+    @State private var showingAccount = false
 
     var body: some View {
         NavigationStack {
@@ -114,6 +115,26 @@ struct HomeView: View {
             .background(Color.alphaGroupedBackground)
             .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showingAccount = true }) {
+                        if let user = appState.currentUser {
+                            Circle()
+                                .fill(Color.alphaPrimary)
+                                .frame(width: 32, height: 32)
+                                .overlay {
+                                    Text(user.initials)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                        } else {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
             .refreshable {
                 await viewModel.loadData()
             }
@@ -128,6 +149,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingQuickBill) {
                 QuickBillSheet(isPresented: $showingQuickBill)
+            }
+            .sheet(isPresented: $showingAccount) {
+                AccountSheet(isPresented: $showingAccount)
             }
         }
     }

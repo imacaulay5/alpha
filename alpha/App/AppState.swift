@@ -154,8 +154,10 @@ extension AppState {
             tabs.append(.billing)
         }
 
-        // Settings always visible
-        tabs.append(.settings)
+        // Projects tab - visible for users with project capabilities
+        if user.hasCapability(.viewProjects) {
+            tabs.append(.projects)
+        }
 
         return tabs
     }
@@ -248,7 +250,7 @@ enum MainTab: Int, Identifiable, CaseIterable {
     case home = 0
     case tasks = 1
     case billing = 2
-    case settings = 3
+    case projects = 3
 
     var id: Int { rawValue }
 
@@ -257,7 +259,7 @@ enum MainTab: Int, Identifiable, CaseIterable {
         case .home: return "Home"
         case .tasks: return "Tasks"
         case .billing: return "Billing"
-        case .settings: return "Settings"
+        case .projects: return "Projects"
         }
     }
 
@@ -266,19 +268,21 @@ enum MainTab: Int, Identifiable, CaseIterable {
         case .home: return "house.fill"
         case .tasks: return "list.bullet.clipboard"
         case .billing: return "doc.text.fill"
-        case .settings: return "gearshape.fill"
+        case .projects: return "folder.fill"
         }
     }
 
     /// Capability required to see this tab (nil = always visible)
     var requiredCapability: Capability? {
         switch self {
-        case .home, .settings:
+        case .home:
             return nil // Always visible
         case .tasks:
             return .trackTime
         case .billing:
             return .viewInvoices
+        case .projects:
+            return .viewProjects
         }
     }
 }

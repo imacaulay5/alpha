@@ -14,9 +14,10 @@ struct MainTabView: View {
     @State private var showingCreateInvoice = false
     @State private var showingQuickPayment = false
     @State private var showingQuickBill = false
+    @State private var showingCreateProject = false
 
     init() {
-        // Configure tab bar appearance to fix the selected icon issue
+        // Configure tab bar appearance
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
 
@@ -46,18 +47,18 @@ struct MainTabView: View {
                         .tag(tab.rawValue)
                 }
             }
-            .tint(Color(uiColor: .label)) // Adapts to dark/light mode
+            .tint(Color(uiColor: .label))
 
             // Context-aware Floating Action Button
             if let currentTab = visibleTabs.first(where: { $0.rawValue == selectedTab }),
-               currentTab != .settings {
+               currentTab != .projects {
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
 
                         switch currentTab {
-                        case .home: // Home tab - Context-aware primary action with expandable menu
+                        case .home:
                             let actions = homeActions.filter { action in
                                 guard let required = action.requiredCapability else { return true }
                                 return appState.hasCapability(required)
@@ -70,7 +71,7 @@ struct MainTabView: View {
                                 )
                             }
 
-                        case .tasks: // Tasks tab - Simple create invoice button (if can create invoices)
+                        case .tasks:
                             if appState.hasCapability(.createInvoices) {
                                 Button(action: { showingCreateInvoice = true }) {
                                     Image(systemName: "plus")
@@ -86,7 +87,7 @@ struct MainTabView: View {
                                 .accessibilityLabel("Create invoice")
                             }
 
-                        case .billing: // Billing tab - Quick Bill button (if has capability)
+                        case .billing:
                             if appState.hasCapability(.quickBill) {
                                 Button(action: { showingQuickBill = true }) {
                                     Image(systemName: "plus")
@@ -102,7 +103,7 @@ struct MainTabView: View {
                                 .accessibilityLabel("Quick Bill")
                             }
 
-                        case .settings:
+                        case .projects:
                             EmptyView()
                         }
 
@@ -124,6 +125,9 @@ struct MainTabView: View {
         .sheet(isPresented: $showingQuickBill) {
             QuickBillSheet(isPresented: $showingQuickBill)
         }
+        .sheet(isPresented: $showingCreateProject) {
+            ProjectFormSheet(isPresented: $showingCreateProject, onSave: {})
+        }
     }
 
     // MARK: - Helper Methods
@@ -137,8 +141,8 @@ struct MainTabView: View {
             TasksView()
         case .billing:
             BillingView()
-        case .settings:
-            SettingsView()
+        case .projects:
+            ProjectsListView()
         }
     }
 
@@ -151,6 +155,13 @@ struct MainTabView: View {
                 color: .blue,
                 requiredCapability: .createInvoices,
                 action: { showingCreateInvoice = true }
+            ),
+            FABAction(
+                icon: "folder.badge.plus",
+                label: "New Project",
+                color: .cyan,
+                requiredCapability: .createProjects,
+                action: { showingCreateProject = true }
             ),
             FABAction(
                 icon: "doc.text.fill",
@@ -171,22 +182,18 @@ struct MainTabView: View {
 
     // Primary FAB action - context-aware based on account type
     private var primaryHomeFABAction: () -> Void {
-        // Freelancer+ accounts: Log Hours (time tracking)
         if appState.hasCapability(.trackTime) {
             return { showingQuickEntry = true }
         }
 
-        // Personal accounts: Quick Bill (most relevant for finance focus)
         if appState.hasCapability(.quickBill) {
             return { showingQuickBill = true }
         }
 
-        // Fallback: Create Invoice
         if appState.hasCapability(.createInvoices) {
             return { showingCreateInvoice = true }
         }
 
-        // Last resort: Quick Payment
         return { showingQuickPayment = true }
     }
 }
