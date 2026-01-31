@@ -156,7 +156,7 @@ struct EmailVerificationView: View {
                     Image(systemName: "envelope.badge.fill")
                         .resizable()
                         .frame(width: 80, height: 80)
-                        .foregroundColor(.alphaPrimary)
+                        .foregroundColor(.accentColor)
 
                     Text("Check Your Email")
                         .font(.alphaDisplayLarge)
@@ -168,7 +168,7 @@ struct EmailVerificationView: View {
 
                     Text(viewModel.email)
                         .font(.alphaBodySmall)
-                        .foregroundColor(.alphaPrimary)
+                        .foregroundColor(.primary)
                         .fontWeight(.semibold)
                 }
                 .padding(.top, 60)

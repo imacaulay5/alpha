@@ -69,7 +69,7 @@ struct OnboardingView: View {
                         Image(systemName: "building.2.fill")
                             .resizable()
                             .frame(width: 80, height: 80)
-                            .foregroundColor(.alphaPrimary)
+                            .foregroundColor(.accentColor)
 
                         Text("Welcome, \(userName.split(separator: " ").first ?? "")! 👋")
                             .font(.alphaDisplayLarge)
