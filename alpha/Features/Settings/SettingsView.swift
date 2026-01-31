@@ -69,26 +69,6 @@ struct SettingsView: View {
                     }
                 }
 
-                // Team Section - For users who can manage team
-                if appState.currentUser?.canManageTeam == true {
-                    Section("Team") {
-                        NavigationLink(destination: Text("Team Members")) {
-                            Label("Team Members", systemImage: "person.3")
-                        }
-                        .requiresCapability(.manageUsers)
-
-                        NavigationLink(destination: Text("Invite Users")) {
-                            Label("Invite Users", systemImage: "person.badge.plus")
-                        }
-                        .requiresCapability(.inviteTeamMembers)
-
-                        NavigationLink(destination: Text("Audit Log")) {
-                            Label("Audit Log", systemImage: "list.clipboard")
-                        }
-                        .requiresCapability(.viewAuditLog)
-                    }
-                }
-
                 // Preferences Section
                 Section("Preferences") {
                     NavigationLink(destination: Text("Notifications")) {

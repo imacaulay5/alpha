@@ -138,25 +138,42 @@ extension AppState {
         currentUser?.hasCapability(capability) ?? false
     }
 
-    /// Determines which main tabs should be visible based on user capabilities
+    /// Determines which main tabs should be visible based on user capabilities and account type
     var visibleTabs: [MainTab] {
         guard let user = currentUser else { return [.home] }
 
         var tabs: [MainTab] = [.home]
 
-        // Tasks tab - visible if user can track time
-        if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) {
-            tabs.append(.tasks)
-        }
+        // Business accounts have a different tab structure
+        if user.accountType == .business {
+            // Business: Home, Projects, Billing, Team
+            if user.hasCapability(.viewProjects) {
+                tabs.append(.projects)
+            }
 
-        // Billing tab - visible if user can access billing features
-        if user.canAccessBilling {
-            tabs.append(.billing)
-        }
+            if user.canAccessBilling {
+                tabs.append(.billing)
+            }
 
-        // Projects tab - visible for users with project capabilities
-        if user.hasCapability(.viewProjects) {
-            tabs.append(.projects)
+            if user.canManageTeam {
+                tabs.append(.team)
+            }
+        } else {
+            // Personal/Freelancer: Home, Tasks, Billing, Projects
+            // Tasks tab - visible if user can track time
+            if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) {
+                tabs.append(.tasks)
+            }
+
+            // Billing tab - visible if user can access billing features
+            if user.canAccessBilling {
+                tabs.append(.billing)
+            }
+
+            // Projects tab - visible for users with project capabilities
+            if user.hasCapability(.viewProjects) {
+                tabs.append(.projects)
+            }
         }
 
         return tabs
@@ -249,8 +266,9 @@ enum AppModule: String, CaseIterable, Hashable {
 enum MainTab: Int, Identifiable, CaseIterable {
     case home = 0
     case tasks = 1
-    case billing = 2
-    case projects = 3
+    case projects = 2
+    case billing = 3
+    case team = 4
 
     var id: Int { rawValue }
 
@@ -258,8 +276,9 @@ enum MainTab: Int, Identifiable, CaseIterable {
         switch self {
         case .home: return "Home"
         case .tasks: return "Tasks"
-        case .billing: return "Billing"
         case .projects: return "Projects"
+        case .billing: return "Billing"
+        case .team: return "Team"
         }
     }
 
@@ -267,8 +286,9 @@ enum MainTab: Int, Identifiable, CaseIterable {
         switch self {
         case .home: return "house.fill"
         case .tasks: return "list.bullet.clipboard"
-        case .billing: return "doc.text.fill"
         case .projects: return "folder.fill"
+        case .billing: return "doc.text.fill"
+        case .team: return "person.3.fill"
         }
     }
 
@@ -279,10 +299,12 @@ enum MainTab: Int, Identifiable, CaseIterable {
             return nil // Always visible
         case .tasks:
             return .trackTime
-        case .billing:
-            return .viewInvoices
         case .projects:
             return .viewProjects
+        case .billing:
+            return .viewInvoices
+        case .team:
+            return .manageUsers // Only for business accounts with team management
         }
     }
 }

@@ -27,12 +27,9 @@ struct MainTabView: View {
         }
     }
 
-    // Dynamically filter tabs based on user capabilities
+    // Use the account-type-aware visible tabs from AppState
     var visibleTabs: [MainTab] {
-        MainTab.allCases.filter { tab in
-            guard let required = tab.requiredCapability else { return true }
-            return appState.hasCapability(required)
-        }
+        appState.visibleTabs
     }
 
     var body: some View {
@@ -51,7 +48,7 @@ struct MainTabView: View {
 
             // Context-aware Floating Action Button
             if let currentTab = visibleTabs.first(where: { $0.rawValue == selectedTab }),
-               currentTab != .projects {
+               currentTab != .team {
                 VStack {
                     Spacer()
                     HStack {
@@ -87,6 +84,22 @@ struct MainTabView: View {
                                 .accessibilityLabel("Create invoice")
                             }
 
+                        case .projects:
+                            if appState.hasCapability(.createProjects) {
+                                Button(action: { showingCreateProject = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .semibold))
+                                        .foregroundColor(Color(uiColor: .systemBackground))
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            Circle()
+                                                .fill(Color(uiColor: .label))
+                                                .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                        )
+                                }
+                                .accessibilityLabel("Create project")
+                            }
+
                         case .billing:
                             if appState.hasCapability(.quickBill) {
                                 Button(action: { showingQuickBill = true }) {
@@ -103,7 +116,7 @@ struct MainTabView: View {
                                 .accessibilityLabel("Quick Bill")
                             }
 
-                        case .projects:
+                        case .team:
                             EmptyView()
                         }
 
@@ -139,10 +152,12 @@ struct MainTabView: View {
             HomeView()
         case .tasks:
             TasksView()
-        case .billing:
-            BillingView()
         case .projects:
             ProjectsListView()
+        case .billing:
+            BillingView()
+        case .team:
+            TeamView()
         }
     }
 

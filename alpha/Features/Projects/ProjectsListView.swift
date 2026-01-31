@@ -129,11 +129,6 @@ struct ProjectsListView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
-                        Button(action: { showingAddProject = true }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 17, weight: .medium))
-                        }
-
                         Button(action: { showingSortOptions = true }) {
                             Image(systemName: "line.3.horizontal.decrease")
                                 .font(.system(size: 17, weight: .medium))
