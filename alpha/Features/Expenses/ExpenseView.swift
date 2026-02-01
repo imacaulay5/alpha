@@ -346,7 +346,7 @@ struct ExpenseFilterPill: View {
                         .cornerRadius(8)
                 }
             }
-            .foregroundColor(isSelected ? .white : .primary)
+            .foregroundColor(isSelected ? Color(uiColor: .systemBackground) : .primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(isSelected ? Color(uiColor: .label) : Color(uiColor: .secondarySystemGroupedBackground))

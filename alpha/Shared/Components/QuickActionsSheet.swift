@@ -64,7 +64,7 @@ struct QuickActionsSheet: View {
     QuickActionsSheet(
         isPresented: .constant(true),
         actions: [
-            QuickAction(icon: "clock.fill", label: "Log Hours", color: .purple, action: {}),
+            QuickAction(icon: "clock.fill", label: "Log Time", color: .purple, action: {}),
             QuickAction(icon: "doc.badge.plus", label: "Create Invoice", color: .blue, action: {}),
             QuickAction(icon: "folder.badge.plus", label: "New Project", color: .cyan, action: {}),
             QuickAction(icon: "doc.text.fill", label: "Quick Bill", color: .green, action: {}),

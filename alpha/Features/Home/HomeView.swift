@@ -370,7 +370,7 @@ struct EmptyStateView: View {
 
                 if appState.hasCapability(.trackTime) {
                     QuickActionCard(
-                        title: "Log Hours",
+                        title: "Log Time",
                         description: "Track billable time on tasks",
                         icon: "clock.fill",
                         backgroundColor: Color.purple.opacity(0.1),
@@ -404,7 +404,6 @@ struct EmptyStateView: View {
             .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 60)
     }
 
     private var emptyStateMessage: String {

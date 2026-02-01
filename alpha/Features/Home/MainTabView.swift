@@ -176,7 +176,7 @@ struct MainTabView: View {
         if appState.hasCapability(.trackTime) {
             actions.append(QuickAction(
                 icon: "clock.fill",
-                label: "Log Hours",
+                label: "Log Time",
                 color: .purple,
                 action: { showingQuickEntry = true }
             ))

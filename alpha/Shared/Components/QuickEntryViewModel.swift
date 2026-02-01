@@ -22,7 +22,8 @@ class QuickEntryViewModel: ObservableObject {
     @Published var isSaving = false
     @Published var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let projectRepository = ProjectRepository()
+    private let timeEntryRepository = TimeEntryRepository()
 
     // MARK: - Computed Properties
 
@@ -41,13 +42,10 @@ class QuickEntryViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            projects = try await apiClient.get("/projects")
+            projects = try await projectRepository.fetchProjects()
             print("✅ Successfully loaded \(projects.count) projects")
         } catch {
             print("❌ Load projects error: \(error)")
-            if let apiError = error as? APIError {
-                print("API Error details: \(apiError.errorDescription ?? "Unknown")")
-            }
             errorMessage = "Failed to load projects: \(error.localizedDescription)"
         }
 
@@ -59,7 +57,9 @@ class QuickEntryViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            tasks = try await apiClient.get("/projects/\(projectId)/tasks")
+            // Fetch project with tasks included
+            let project = try await projectRepository.fetchProject(id: projectId)
+            tasks = project.tasks ?? []
         } catch {
             errorMessage = "Failed to load tasks: \(error.localizedDescription)"
             tasks = []
@@ -84,26 +84,6 @@ class QuickEntryViewModel: ObservableObject {
         isSaving = true
         errorMessage = nil
 
-        struct CreateTimeEntryRequest: Encodable {
-            let projectId: String
-            let taskId: String?
-            let startAt: Date
-            let endAt: Date
-            let durationMinutes: Int
-            let notes: String?
-            let source: String
-
-            enum CodingKeys: String, CodingKey {
-                case projectId = "project_id"
-                case taskId = "task_id"
-                case startAt = "start_at"
-                case endAt = "end_at"
-                case durationMinutes = "duration_minutes"
-                case notes
-                case source
-            }
-        }
-
         do {
             guard let projectId = selectedProject?.id else {
                 errorMessage = "Please select a project"
@@ -119,7 +99,7 @@ class QuickEntryViewModel: ObservableObject {
                                        of: date) ?? date
             let startTime = endTime.addingTimeInterval(-Double(totalDurationMinutes * 60))
 
-            let request = CreateTimeEntryRequest(
+            _ = try await timeEntryRepository.createTimeEntry(
                 projectId: projectId,
                 taskId: selectedTask?.id,
                 startAt: startTime,
@@ -128,8 +108,6 @@ class QuickEntryViewModel: ObservableObject {
                 notes: notes.isEmpty ? nil : notes,
                 source: "MOBILE"
             )
-
-            let _: TimeEntry = try await apiClient.post("/time-entries", body: request)
 
             // Reset form on success
             resetForm()

@@ -107,11 +107,6 @@ struct ProjectsListView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Search Bar
-                    searchBar
-                        .padding(.horizontal)
-                        .padding(.vertical, 12)
-
                     // Projects List
                     if viewModel.isLoading {
                         ProgressView()
@@ -124,6 +119,7 @@ struct ProjectsListView: View {
                 }
             }
             .background(Color(uiColor: .systemBackground))
+            .searchable(text: $viewModel.searchText, prompt: "Search projects")
             .navigationTitle("Projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -168,29 +164,6 @@ struct ProjectsListView: View {
                 Button("Cancel", role: .cancel) { }
             }
         }
-    }
-
-    // MARK: - Search Bar
-
-    private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-
-            TextField("Search", text: $viewModel.searchText)
-                .font(.system(size: 17))
-
-            if !viewModel.searchText.isEmpty {
-                Button(action: { viewModel.searchText = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .cornerRadius(12)
     }
 
     // MARK: - Projects List

@@ -17,6 +17,12 @@ struct alphaApp: App {
             AppCoordinator()
                 .environmentObject(appState)
                 .preferredColorScheme(colorScheme)
+                .onChange(of: appearance) { _, newValue in
+                    updateWindowAppearance(newValue)
+                }
+                .onAppear {
+                    updateWindowAppearance(appearance)
+                }
                 .task {
                     await appState.checkAuthStatus()
                 }
@@ -31,6 +37,27 @@ struct alphaApp: App {
             return .dark
         default:
             return nil // System default
+        }
+    }
+
+    private func updateWindowAppearance(_ appearance: String) {
+        let style: UIUserInterfaceStyle
+        switch appearance {
+        case "light":
+            style = .light
+        case "dark":
+            style = .dark
+        default:
+            style = .unspecified
+        }
+
+        // Update all windows immediately
+        for scene in UIApplication.shared.connectedScenes {
+            if let windowScene = scene as? UIWindowScene {
+                for window in windowScene.windows {
+                    window.overrideUserInterfaceStyle = style
+                }
+            }
         }
     }
 }
