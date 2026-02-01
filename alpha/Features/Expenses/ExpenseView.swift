@@ -282,7 +282,7 @@ struct ExpenseView: View {
                 .font(.headline)
                 .foregroundColor(.primary)
 
-            Text("Tap + to add your first expense")
+            Text("Add your first expense to get started")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -881,7 +881,6 @@ struct ExpenseDetailSheet: View {
 struct ExpenseViewContent: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = ExpenseViewModel()
-    @State private var showingAddExpense = false
     @State private var selectedExpense: Expense?
 
     var body: some View {
@@ -954,25 +953,10 @@ struct ExpenseViewContent: View {
         .task {
             await viewModel.loadExpenses()
         }
-        .sheet(isPresented: $showingAddExpense) {
-            ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {
-                Task { await viewModel.loadExpenses() }
-            })
-        }
         .sheet(item: $selectedExpense) { expense in
             ExpenseDetailSheet(expense: expense, onUpdate: {
                 Task { await viewModel.loadExpenses() }
             })
-        }
-        .toolbar {
-            if appState.hasCapability(.submitExpenses) {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showingAddExpense = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 17, weight: .medium))
-                    }
-                }
-            }
         }
     }
 
@@ -999,7 +983,7 @@ struct ExpenseViewContent: View {
                 .font(.headline)
                 .foregroundColor(.primary)
 
-            Text("Tap + to add your first expense")
+            Text("Add your first expense to get started")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

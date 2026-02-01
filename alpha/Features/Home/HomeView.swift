@@ -47,7 +47,8 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @State private var showingCreateInvoice = false
     @State private var showingQuickEntry = false
-    @State private var showingQuickBill = false
+    @State private var showingAddExpense = false
+    @State private var showingRecordPayment = false
     @State private var showingAccount = false
 
     var body: some View {
@@ -67,7 +68,8 @@ struct HomeView: View {
                         EmptyStateView(
                             onCreateInvoice: { showingCreateInvoice = true },
                             onLogHours: { showingQuickEntry = true },
-                            onQuickBill: { showingQuickBill = true }
+                            onAddExpense: { showingAddExpense = true },
+                            onRecordPayment: { showingRecordPayment = true }
                         )
                     } else {
                         // Welcome & Account-Specific Metrics
@@ -147,8 +149,11 @@ struct HomeView: View {
             .sheet(isPresented: $showingQuickEntry) {
                 QuickEntrySheet(isPresented: $showingQuickEntry)
             }
-            .sheet(isPresented: $showingQuickBill) {
-                QuickBillSheet(isPresented: $showingQuickBill)
+            .sheet(isPresented: $showingAddExpense) {
+                ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {})
+            }
+            .sheet(isPresented: $showingRecordPayment) {
+                QuickPaymentSheet(isPresented: $showingRecordPayment)
             }
             .sheet(isPresented: $showingAccount) {
                 AccountSheet(isPresented: $showingAccount)
@@ -329,7 +334,8 @@ struct EmptyStateView: View {
     @EnvironmentObject var appState: AppState
     let onCreateInvoice: () -> Void
     let onLogHours: () -> Void
-    let onQuickBill: () -> Void
+    let onAddExpense: () -> Void
+    let onRecordPayment: () -> Void
 
     var body: some View {
         VStack(spacing: 32) {
@@ -373,14 +379,25 @@ struct EmptyStateView: View {
                     )
                 }
 
-                if appState.hasCapability(.quickBill) {
+                if appState.hasCapability(.submitExpenses) {
                     QuickActionCard(
-                        title: "Quick Bill",
-                        description: "Bill time entries to clients",
+                        title: "Add Expense",
+                        description: "Track business expenses",
                         icon: "dollarsign.circle.fill",
                         backgroundColor: Color.green.opacity(0.1),
                         iconColor: .green,
-                        action: onQuickBill
+                        action: onAddExpense
+                    )
+                }
+
+                if appState.hasCapability(.recordPayments) {
+                    QuickActionCard(
+                        title: "Record Payment",
+                        description: "Log received payments",
+                        icon: "creditcard.fill",
+                        backgroundColor: Color.orange.opacity(0.1),
+                        iconColor: .orange,
+                        action: onRecordPayment
                     )
                 }
             }

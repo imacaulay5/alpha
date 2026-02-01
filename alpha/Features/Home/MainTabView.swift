@@ -10,11 +10,12 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab = 0
+    @State private var showingQuickActions = false
     @State private var showingQuickEntry = false
     @State private var showingCreateInvoice = false
     @State private var showingQuickPayment = false
-    @State private var showingQuickBill = false
     @State private var showingCreateProject = false
+    @State private var showingAddExpense = false
 
     init() {
         // Configure tab bar appearance
@@ -56,21 +57,9 @@ struct MainTabView: View {
 
                         switch currentTab {
                         case .home:
-                            let actions = homeActions.filter { action in
-                                guard let required = action.requiredCapability else { return true }
-                                return appState.hasCapability(required)
-                            }
-
-                            if !actions.isEmpty || appState.hasCapability(.trackTime) {
-                                ExpandableFAB(
-                                    primaryAction: primaryHomeFABAction,
-                                    secondaryActions: actions
-                                )
-                            }
-
-                        case .tasks:
-                            if appState.hasCapability(.createInvoices) {
-                                Button(action: { showingCreateInvoice = true }) {
+                            // Show FAB that opens Quick Actions sheet
+                            if hasAnyQuickAction {
+                                Button(action: { showingQuickActions = true }) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 24, weight: .semibold))
                                         .foregroundColor(Color(uiColor: .systemBackground))
@@ -81,7 +70,23 @@ struct MainTabView: View {
                                                 .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                                         )
                                 }
-                                .accessibilityLabel("Create invoice")
+                                .accessibilityLabel("Quick Actions")
+                            }
+
+                        case .tasks:
+                            if appState.hasCapability(.trackTime) {
+                                Button(action: { showingQuickEntry = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .semibold))
+                                        .foregroundColor(Color(uiColor: .systemBackground))
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            Circle()
+                                                .fill(Color(uiColor: .label))
+                                                .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                                        )
+                                }
+                                .accessibilityLabel("Log Time")
                             }
 
                         case .projects:
@@ -101,8 +106,8 @@ struct MainTabView: View {
                             }
 
                         case .billing:
-                            if appState.hasCapability(.quickBill) {
-                                Button(action: { showingQuickBill = true }) {
+                            if appState.hasCapability(.submitExpenses) {
+                                Button(action: { showingAddExpense = true }) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 24, weight: .semibold))
                                         .foregroundColor(Color(uiColor: .systemBackground))
@@ -113,7 +118,7 @@ struct MainTabView: View {
                                                 .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                                         )
                                 }
-                                .accessibilityLabel("Quick Bill")
+                                .accessibilityLabel("Add Expense")
                             }
 
                         case .team:
@@ -126,6 +131,9 @@ struct MainTabView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingQuickActions) {
+            QuickActionsSheet(isPresented: $showingQuickActions, actions: quickActions)
+        }
         .sheet(isPresented: $showingQuickEntry) {
             QuickEntrySheet(isPresented: $showingQuickEntry)
         }
@@ -135,11 +143,11 @@ struct MainTabView: View {
         .sheet(isPresented: $showingQuickPayment) {
             QuickPaymentSheet(isPresented: $showingQuickPayment)
         }
-        .sheet(isPresented: $showingQuickBill) {
-            QuickBillSheet(isPresented: $showingQuickBill)
-        }
         .sheet(isPresented: $showingCreateProject) {
             ProjectFormSheet(isPresented: $showingCreateProject, onSave: {})
+        }
+        .sheet(isPresented: $showingAddExpense) {
+            ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {})
         }
     }
 
@@ -161,55 +169,64 @@ struct MainTabView: View {
         }
     }
 
-    // Home tab FAB actions with capability requirements
-    private var homeActions: [FABAction] {
-        [
-            FABAction(
-                icon: "doc.badge.plus",
-                label: "Create Invoice",
-                color: .blue,
-                requiredCapability: .createInvoices,
-                action: { showingCreateInvoice = true }
-            ),
-            FABAction(
-                icon: "folder.badge.plus",
-                label: "New Project",
-                color: .cyan,
-                requiredCapability: .createProjects,
-                action: { showingCreateProject = true }
-            ),
-            FABAction(
-                icon: "doc.text.fill",
-                label: "Quick Bill",
-                color: .purple,
-                requiredCapability: .quickBill,
-                action: { showingQuickBill = true }
-            ),
-            FABAction(
-                icon: "creditcard.fill",
-                label: "Quick Payment",
-                color: .orange,
-                requiredCapability: .recordPayments,
-                action: { showingQuickPayment = true }
-            )
-        ]
-    }
+    // Quick Actions for the Home tab sheet
+    private var quickActions: [QuickAction] {
+        var actions: [QuickAction] = []
 
-    // Primary FAB action - context-aware based on account type
-    private var primaryHomeFABAction: () -> Void {
         if appState.hasCapability(.trackTime) {
-            return { showingQuickEntry = true }
-        }
-
-        if appState.hasCapability(.quickBill) {
-            return { showingQuickBill = true }
+            actions.append(QuickAction(
+                icon: "clock.fill",
+                label: "Log Hours",
+                color: .purple,
+                action: { showingQuickEntry = true }
+            ))
         }
 
         if appState.hasCapability(.createInvoices) {
-            return { showingCreateInvoice = true }
+            actions.append(QuickAction(
+                icon: "doc.badge.plus",
+                label: "Create Invoice",
+                color: .blue,
+                action: { showingCreateInvoice = true }
+            ))
         }
 
-        return { showingQuickPayment = true }
+        if appState.hasCapability(.createProjects) {
+            actions.append(QuickAction(
+                icon: "folder.badge.plus",
+                label: "New Project",
+                color: .cyan,
+                action: { showingCreateProject = true }
+            ))
+        }
+
+        if appState.hasCapability(.submitExpenses) {
+            actions.append(QuickAction(
+                icon: "dollarsign.circle.fill",
+                label: "Add Expense",
+                color: .green,
+                action: { showingAddExpense = true }
+            ))
+        }
+
+        if appState.hasCapability(.recordPayments) {
+            actions.append(QuickAction(
+                icon: "creditcard.fill",
+                label: "Record Payment",
+                color: .orange,
+                action: { showingQuickPayment = true }
+            ))
+        }
+
+        return actions
+    }
+
+    private var hasAnyQuickAction: Bool {
+        appState.hasCapability(.trackTime) ||
+        appState.hasCapability(.createInvoices) ||
+        appState.hasCapability(.createProjects) ||
+        appState.hasCapability(.submitExpenses) ||
+        appState.hasCapability(.recordPayments)
     }
 }
 
