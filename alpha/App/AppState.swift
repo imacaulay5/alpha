@@ -146,7 +146,12 @@ extension AppState {
 
         // Business accounts have a different tab structure
         if user.accountType == .business {
-            // Business: Home, Projects, Billing, Team
+            // Business: Home, Tasks, Projects, Billing, Team
+            // Tasks tab - for logging and viewing time entries
+            if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) || user.hasCapability(.viewTeamTimeEntries) {
+                tabs.append(.tasks)
+            }
+
             if user.hasCapability(.viewProjects) {
                 tabs.append(.projects)
             }

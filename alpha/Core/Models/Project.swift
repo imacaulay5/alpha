@@ -52,6 +52,7 @@ struct Project: Codable, Identifiable, Hashable {
 
     // Populated by backend joins
     let client: Client?
+    let tasks: [ProjectTask]?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -70,6 +71,7 @@ struct Project: Codable, Identifiable, Hashable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case client
+        case tasks
     }
 
     // Computed properties
@@ -114,10 +116,10 @@ extension Project {
         endDate: Date().addingTimeInterval(60 * 60 * 24 * 90), // 90 days
         isActive: true,
         color: "#007AFF",
-        // tags: ["web", "design", "frontend"],
         createdAt: Date(),
         updatedAt: Date(),
-        client: .preview
+        client: .preview,
+        tasks: nil
     )
 
     static let previewFixed = Project(
@@ -133,9 +135,9 @@ extension Project {
         endDate: Date().addingTimeInterval(60 * 60 * 24 * 180), // 180 days
         isActive: true,
         color: "#34C759",
-        // tags: ["mobile", "ios", "android"],
         createdAt: Date(),
         updatedAt: Date(),
-        client: .preview
+        client: .preview,
+        tasks: nil
     )
 }

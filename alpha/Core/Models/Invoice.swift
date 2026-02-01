@@ -7,6 +7,57 @@
 
 import Foundation
 
+// MARK: - Invoice Line Item
+
+struct InvoiceLineItem: Codable, Identifiable {
+    let id: String
+    let invoiceId: String
+    let description: String
+    let quantity: Double
+    let rate: Double
+    let amount: Double
+    let order: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case invoiceId = "invoice_id"
+        case description
+        case quantity
+        case rate
+        case amount
+        case order
+    }
+
+    var total: Double {
+        quantity * rate
+    }
+}
+
+// MARK: - Preview Helpers
+extension InvoiceLineItem {
+    static let preview = InvoiceLineItem(
+        id: "line_1",
+        invoiceId: "invoice_1",
+        description: "Website Design & Development",
+        quantity: 40,
+        rate: 150.0,
+        amount: 6000.0,
+        order: 0
+    )
+
+    static let preview2 = InvoiceLineItem(
+        id: "line_2",
+        invoiceId: "invoice_1",
+        description: "Logo Design",
+        quantity: 1,
+        rate: 500.0,
+        amount: 500.0,
+        order: 1
+    )
+}
+
+// MARK: - Invoice Status
+
 enum InvoiceStatus: String, Codable {
     case draft = "DRAFT"
     case sent = "SENT"
@@ -52,6 +103,7 @@ struct Invoice: Codable, Identifiable {
     // Populated by backend joins
     let client: Client?
     let project: Project?
+    let lineItems: [InvoiceLineItem]?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -73,6 +125,7 @@ struct Invoice: Codable, Identifiable {
         case updatedAt = "updated_at"
         case client
         case project
+        case lineItems = "line_items"
     }
 
     // Computed properties
@@ -116,6 +169,7 @@ extension Invoice {
         createdAt: Date(),
         updatedAt: Date(),
         client: .preview,
-        project: .preview
+        project: .preview,
+        lineItems: [.preview, .preview2]
     )
 }

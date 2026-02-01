@@ -200,7 +200,8 @@ class TasksViewModel: ObservableObject {
                     color: nil,
                     createdAt: nil,
                     updatedAt: nil,
-                    client: nil
+                    client: nil,
+                    tasks: nil
                 ),
                 totalHours: projectTotalHours,
                 totalAmount: projectTotalAmount,
@@ -225,6 +226,8 @@ class TasksViewModel: ObservableObject {
 
 struct TasksView: View {
     @StateObject private var viewModel = TasksViewModel()
+    @State private var editingEntry: TimeEntry?
+    @State private var showingEditSheet = false
 
     var body: some View {
         NavigationStack {
@@ -284,6 +287,10 @@ struct TasksView: View {
                                         Task {
                                             await viewModel.deleteEntry(entryId)
                                         }
+                                    },
+                                    onEditEntry: { entry in
+                                        editingEntry = entry
+                                        showingEditSheet = true
                                     }
                                 )
                             }
@@ -305,6 +312,19 @@ struct TasksView: View {
             .onChange(of: viewModel.billingPeriod) { _, _ in
                 Task {
                     await viewModel.loadTimeEntries()
+                }
+            }
+            .sheet(isPresented: $showingEditSheet) {
+                if let entry = editingEntry {
+                    TimeEntryFormSheet(
+                        isPresented: $showingEditSheet,
+                        existingEntry: entry,
+                        onSave: {
+                            Task {
+                                await viewModel.loadTimeEntries()
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -399,6 +419,7 @@ struct ProjectGroupView: View {
     let onToggleProject: () -> Void
     let onToggleTask: (String) -> Void
     let onDeleteEntry: (String) -> Void
+    let onEditEntry: (TimeEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -443,7 +464,8 @@ struct ProjectGroupView: View {
                     TaskGroupView(
                         taskGroup: taskGroup,
                         onToggle: { onToggleTask(taskGroup.id) },
-                        onDeleteEntry: onDeleteEntry
+                        onDeleteEntry: onDeleteEntry,
+                        onEditEntry: onEditEntry
                     )
                 }
             }
@@ -459,6 +481,7 @@ struct TaskGroupView: View {
     let taskGroup: TaskGroup
     let onToggle: () -> Void
     let onDeleteEntry: (String) -> Void
+    let onEditEntry: (TimeEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -490,7 +513,8 @@ struct TaskGroupView: View {
                 ForEach(taskGroup.entries) { entry in
                     TimeEntryRow(
                         entry: entry,
-                        onDelete: { onDeleteEntry(entry.id) }
+                        onDelete: { onDeleteEntry(entry.id) },
+                        onEdit: { onEditEntry(entry) }
                     )
                     .padding(.leading, 48)
                 }
@@ -504,36 +528,44 @@ struct TaskGroupView: View {
 struct TimeEntryRow: View {
     let entry: TimeEntry
     let onDelete: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.timeRangeFormatted)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.alphaPrimaryText)
+        Button(action: onEdit) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.timeRangeFormatted)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.alphaPrimaryText)
 
-                if let notes = entry.notes, !notes.isEmpty {
-                    Text(notes)
-                        .font(.system(size: 11))
-                        .foregroundColor(.alphaSecondaryText)
-                        .lineLimit(1)
+                    if let notes = entry.notes, !notes.isEmpty {
+                        Text(notes)
+                            .font(.system(size: 11))
+                            .foregroundColor(.alphaSecondaryText)
+                            .lineLimit(1)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(entry.durationFormatted)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.alphaPrimaryText)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(entry.durationFormatted)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.alphaPrimaryText)
 
-                if let amount = entry.billableAmount {
-                    Text(String(format: "$%.0f", amount))
-                        .font(.system(size: 11))
-                        .foregroundColor(.alphaSecondaryText)
+                    if let amount = entry.billableAmount {
+                        Text(String(format: "$%.0f", amount))
+                            .font(.system(size: 11))
+                            .foregroundColor(.alphaSecondaryText)
+                    }
                 }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundColor(.alphaSecondaryText)
             }
         }
+        .buttonStyle(.plain)
         .padding(.vertical, 8)
         .padding(.horizontal)
         .background(Color.alphaCardBackground.opacity(0.3))

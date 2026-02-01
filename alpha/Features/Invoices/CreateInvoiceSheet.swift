@@ -16,6 +16,8 @@ struct CreateInvoiceSheet: View {
     @State private var dueDate = Date()
     @State private var notes = ""
     @State private var showingNewContact = false
+    @State private var showingTimeEntries = false
+    @State private var selectedTimeEntries: [TimeEntry] = []
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
@@ -55,7 +57,16 @@ struct CreateInvoiceSheet: View {
     }
 
     private var totalAmount: Double {
-        lineItems.reduce(0) { $0 + $1.total }
+        let lineItemsTotal = lineItems.reduce(0) { $0 + $1.total }
+        let timeEntriesTotal = selectedTimeEntries.reduce(0) { total, entry in
+            if let amount = entry.billableAmount {
+                return total + amount
+            } else if let rate = entry.project?.rate {
+                return total + (rate * entry.durationHours)
+            }
+            return total
+        }
+        return lineItemsTotal + timeEntriesTotal
     }
 
     var body: some View {
@@ -97,6 +108,59 @@ struct CreateInvoiceSheet: View {
                     }
                 } header: {
                     Text("Client Information")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .textCase(nil)
+                }
+
+                Section {
+                    // Import from Time Entries Button
+                    Button(action: { showingTimeEntries = true }) {
+                        HStack {
+                            Image(systemName: "clock.badge.checkmark")
+                                .foregroundColor(.blue)
+                            Text("Import from Time Entries")
+                                .foregroundColor(.blue)
+                            Spacer()
+                            if !selectedTimeEntries.isEmpty {
+                                Text("\(selectedTimeEntries.count) selected")
+                                    .font(.alphaCaption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    // Selected Time Entries Summary
+                    if !selectedTimeEntries.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(selectedTimeEntries, id: \.id) { entry in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.project?.name ?? "Unknown Project")
+                                            .font(.alphaBodySmall)
+                                            .foregroundColor(.alphaPrimaryText)
+                                        Text(entry.durationFormatted)
+                                            .font(.alphaCaption)
+                                            .foregroundColor(.alphaSecondaryText)
+                                    }
+                                    Spacer()
+                                    if let amount = entry.billableAmount {
+                                        Text(String(format: "$%.2f", amount))
+                                            .font(.alphaBodySmall)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.alphaSuccess)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("Time Entries")
                         .font(.headline)
                         .foregroundColor(.primary)
                         .textCase(nil)
@@ -168,7 +232,7 @@ struct CreateInvoiceSheet: View {
                     }
                     .padding(.vertical, 8)
                 } header: {
-                    Text("Line Items")
+                    Text("Additional Line Items")
                         .font(.headline)
                         .foregroundColor(.primary)
                         .textCase(nil)
@@ -243,15 +307,22 @@ struct CreateInvoiceSheet: View {
                     }
                 })
             }
+            .sheet(isPresented: $showingTimeEntries) {
+                SelectTimeEntriesSheet(isPresented: $showingTimeEntries) { entries in
+                    selectedTimeEntries = entries
+                }
+            }
         }
     }
 
     private var isFormValid: Bool {
         guard selectedContact != nil else { return false }
-        guard !lineItems.isEmpty else { return false }
 
-        // Check that at least one line item has a description and positive rate
-        return lineItems.contains { !$0.description.isEmpty && $0.rate > 0 }
+        // Need either time entries or at least one valid line item
+        let hasTimeEntries = !selectedTimeEntries.isEmpty
+        let hasValidLineItem = lineItems.contains { !$0.description.isEmpty && $0.rate > 0 }
+
+        return hasTimeEntries || hasValidLineItem
     }
 
     private func addLineItem() {
@@ -285,23 +356,50 @@ struct CreateInvoiceSheet: View {
             let formatter = ISO8601DateFormatter()
             let dueDateString = formatter.string(from: dueDate)
 
-            let lineItemRequests = lineItems.map { item in
-                InvoiceLineItemRequest(
+            // Convert time entries to line items
+            var allLineItems: [InvoiceLineItemRequest] = []
+
+            // Group time entries by project for cleaner invoices
+            let entriesByProject = Dictionary(grouping: selectedTimeEntries) { $0.projectId }
+            for (_, entries) in entriesByProject {
+                let projectName = entries.first?.project?.name ?? "Time Entry"
+                let totalHours = entries.reduce(0) { $0 + $1.durationHours }
+                let rate = entries.first?.billableRate ?? entries.first?.project?.rate ?? 0
+
+                if totalHours > 0 {
+                    allLineItems.append(InvoiceLineItemRequest(
+                        description: "\(projectName) - \(String(format: "%.1f", totalHours)) hours",
+                        quantity: totalHours,
+                        rate: rate
+                    ))
+                }
+            }
+
+            // Add manual line items
+            for item in lineItems where !item.description.isEmpty && item.rate > 0 {
+                allLineItems.append(InvoiceLineItemRequest(
                     description: item.description,
                     quantity: item.quantity,
                     rate: item.rate
-                )
+                ))
             }
 
             let request = CreateInvoiceRequest(
                 clientId: contact.id,
                 dueDate: dueDateString,
-                lineItems: lineItemRequests,
+                lineItems: allLineItems,
                 notes: notes.isEmpty ? nil : notes,
                 currency: "USD"
             )
 
-            let _: InvoiceResponse = try await apiClient.post("/invoices", body: request)
+            let response: InvoiceResponse = try await apiClient.post("/invoices", body: request)
+
+            // Mark time entries as invoiced
+            if !selectedTimeEntries.isEmpty {
+                let timeEntryRepository = TimeEntryRepository()
+                let entryIds = selectedTimeEntries.map { $0.id }
+                try await timeEntryRepository.markAsInvoiced(ids: entryIds, invoiceId: response.id)
+            }
 
             isPresented = false
         } catch {

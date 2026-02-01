@@ -636,19 +636,45 @@ struct InvoiceDetailSheet: View {
                     .padding(.vertical, 24)
                     .background(Color(uiColor: .secondarySystemGroupedBackground))
 
-                    // Invoice Details
+                    // Invoice Info & Bill To
                     VStack(spacing: 16) {
                         DetailRow(label: "Invoice Number", value: invoice.invoiceNumber)
-                        DetailRow(label: "Client", value: invoice.client?.name ?? "Unknown")
 
-                        if let project = invoice.project {
-                            DetailRow(label: "Project", value: project.name)
+                        Divider()
+
+                        // Bill To Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Bill To")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .textCase(.uppercase)
+
+                            if let client = invoice.client {
+                                Text(client.name)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.primary)
+
+                                if let email = client.email {
+                                    Text(email)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                Text("Unknown Client")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.secondary)
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         Divider()
 
                         DetailRow(label: "Issue Date", value: invoice.issueDate.formatted(date: .abbreviated, time: .omitted))
                         DetailRow(label: "Due Date", value: invoice.dueDate.formatted(date: .abbreviated, time: .omitted))
+
+                        if let project = invoice.project {
+                            DetailRow(label: "Project", value: project.name)
+                        }
 
                         if invoice.isOverdue {
                             HStack {
@@ -660,14 +686,88 @@ struct InvoiceDetailSheet: View {
                                     .foregroundColor(.red)
                             }
                         }
+                    }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
 
-                        Divider()
+                    // Line Items Section
+                    if let lineItems = invoice.lineItems, !lineItems.isEmpty {
+                        VStack(spacing: 0) {
+                            // Header
+                            HStack {
+                                Text("Description")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
+                                Text("Qty")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+
+                                Text("Rate")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 70, alignment: .trailing)
+
+                                Text("Amount")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(uiColor: .tertiarySystemGroupedBackground))
+
+                            // Line Items
+                            ForEach(lineItems) { item in
+                                HStack(alignment: .top) {
+                                    Text(item.description)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .lineLimit(2)
+
+                                    Text(String(format: "%.0f", item.quantity))
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 40, alignment: .trailing)
+
+                                    Text(String(format: "$%.2f", item.rate))
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 70, alignment: .trailing)
+
+                                    Text(String(format: "$%.2f", item.amount))
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 80, alignment: .trailing)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+
+                                if item.id != lineItems.last?.id {
+                                    Divider()
+                                        .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+
+                    // Totals Section
+                    VStack(spacing: 12) {
                         DetailRow(label: "Subtotal", value: String(format: "$%.2f", invoice.subtotal))
 
                         if let taxRate = invoice.taxRate, let taxAmount = invoice.taxAmount {
                             DetailRow(label: "Tax (\(String(format: "%.1f%%", taxRate * 100)))", value: String(format: "$%.2f", taxAmount))
                         }
+
+                        Divider()
 
                         DetailRow(label: "Total", value: invoice.totalFormatted, isBold: true)
 
@@ -730,6 +830,23 @@ struct InvoiceDetailSheet: View {
                             .padding()
                             .background(Color(uiColor: .secondarySystemGroupedBackground))
                             .cornerRadius(12)
+                        }
+
+                        // Download PDF Button
+                        Button(action: { /* TODO: Implement PDF generation */ }) {
+                            HStack {
+                                Image(systemName: "arrow.down.doc.fill")
+                                Text("Download PDF")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(uiColor: .secondarySystemGroupedBackground))
+                            .foregroundColor(.primary)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(uiColor: .separator), lineWidth: 1)
+                            )
                         }
                     }
                     .padding(.horizontal)
