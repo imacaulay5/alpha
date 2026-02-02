@@ -612,14 +612,18 @@ struct ProjectBillingRow: View {
 // MARK: - Invoice Detail Sheet
 
 struct InvoiceDetailSheet: View {
+    @EnvironmentObject var appState: AppState
     let invoice: Invoice
     var onUpdate: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var isUpdating = false
     @State private var errorMessage: String?
+    @State private var showingShareSheet = false
+    @State private var pdfURL: URL?
 
     private let invoiceRepository = InvoiceRepository()
+    private let pdfGenerator = InvoicePDFGenerator()
 
     var body: some View {
         NavigationStack {
@@ -834,7 +838,7 @@ struct InvoiceDetailSheet: View {
                         }
 
                         // Download PDF Button
-                        Button(action: { /* TODO: Implement PDF generation */ }) {
+                        Button(action: generateAndSharePDF) {
                             HStack {
                                 Image(systemName: "arrow.down.doc.fill")
                                 Text("Download PDF")
@@ -876,7 +880,29 @@ struct InvoiceDetailSheet: View {
                     ProgressView()
                 }
             }
+            .sheet(isPresented: $showingShareSheet) {
+                if let url = pdfURL {
+                    ShareSheet(activityItems: [url])
+                        .withAppTheme()
+                }
+            }
         }
+    }
+
+    private func generateAndSharePDF() {
+        guard let pdfData = pdfGenerator.generatePDF(for: invoice, organization: appState.organization) else {
+            errorMessage = "Failed to generate PDF"
+            return
+        }
+
+        let filename = "Invoice-\(invoice.invoiceNumber)"
+        guard let url = pdfGenerator.savePDF(pdfData, filename: filename) else {
+            errorMessage = "Failed to save PDF"
+            return
+        }
+
+        pdfURL = url
+        showingShareSheet = true
     }
 
     private var statusBadge: some View {

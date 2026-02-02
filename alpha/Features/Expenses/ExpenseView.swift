@@ -465,6 +465,7 @@ struct ExpenseFormSheet: View {
     @State private var isLoadingProjects = false
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showingScanner = false
 
     private let projectRepository = ProjectRepository()
     private let expenseRepository = ExpenseRepository()
@@ -490,6 +491,32 @@ struct ExpenseFormSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Scan Receipt Button
+                if !isEditing && ReceiptScanner.isAvailable {
+                    Section {
+                        Button(action: { showingScanner = true }) {
+                            HStack {
+                                Image(systemName: "doc.text.viewfinder")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.alphaPrimary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Scan Receipt")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Auto-fill expense details from a photo")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
                 // Description
                 Section("Description") {
                     TextField("What was this expense for?", text: $description)
@@ -580,6 +607,30 @@ struct ExpenseFormSheet: View {
             .task {
                 await loadProjects()
             }
+            .sheet(isPresented: $showingScanner) {
+                ReceiptScannerView(onScanComplete: { scannedData in
+                    applyScannedData(scannedData)
+                })
+                .withAppTheme()
+            }
+        }
+    }
+
+    private func applyScannedData(_ data: ScannedReceiptData) {
+        if let scannedMerchant = data.merchant {
+            merchant = scannedMerchant
+        }
+        if let scannedAmount = data.amount {
+            amount = String(format: "%.2f", scannedAmount)
+        }
+        if let scannedDate = data.date {
+            expenseDate = scannedDate
+        }
+        if let scannedCategory = data.category {
+            category = scannedCategory
+        }
+        if !data.items.isEmpty {
+            description = data.items.first ?? ""
         }
     }
 
