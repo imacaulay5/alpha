@@ -26,7 +26,7 @@ struct ContactFormSheet: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let clientRepository = ClientRepository()
 
     init(isPresented: Binding<Bool>, contact: Contact? = nil, onSave: @escaping () -> Void) {
         self._isPresented = isPresented
@@ -124,26 +124,35 @@ struct ContactFormSheet: View {
         errorMessage = nil
 
         do {
-            let contactData = ContactCreate(
-                name: name,
-                email: email.isEmpty ? nil : email,
-                phone: phone.isEmpty ? nil : phone,
-                address: address.isEmpty ? nil : address,
-                city: city.isEmpty ? nil : city,
-                state: state.isEmpty ? nil : state,
-                zipCode: zipCode.isEmpty ? nil : zipCode,
-                country: country.isEmpty ? nil : country,
-                contactName: contactName.isEmpty ? nil : contactName,
-                notes: notes.isEmpty ? nil : notes,
-                isActive: true
-            )
-
             if let existingContact = contact {
                 // Update existing contact
-                let _: Contact = try await apiClient.put("/clients/\(existingContact.id)", body: contactData)
+                _ = try await clientRepository.updateClient(
+                    id: existingContact.id,
+                    name: name,
+                    email: email.isEmpty ? nil : email,
+                    phone: phone.isEmpty ? nil : phone,
+                    address: address.isEmpty ? nil : address,
+                    city: city.isEmpty ? nil : city,
+                    state: state.isEmpty ? nil : state,
+                    zipCode: zipCode.isEmpty ? nil : zipCode,
+                    country: country.isEmpty ? nil : country,
+                    contactName: contactName.isEmpty ? nil : contactName,
+                    notes: notes.isEmpty ? nil : notes
+                )
             } else {
                 // Create new contact
-                let _: Contact = try await apiClient.post("/clients", body: contactData)
+                _ = try await clientRepository.createClient(
+                    name: name,
+                    email: email.isEmpty ? nil : email,
+                    phone: phone.isEmpty ? nil : phone,
+                    address: address.isEmpty ? nil : address,
+                    city: city.isEmpty ? nil : city,
+                    state: state.isEmpty ? nil : state,
+                    zipCode: zipCode.isEmpty ? nil : zipCode,
+                    country: country.isEmpty ? nil : country,
+                    contactName: contactName.isEmpty ? nil : contactName,
+                    notes: notes.isEmpty ? nil : notes
+                )
             }
 
             onSave()

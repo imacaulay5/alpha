@@ -21,40 +21,9 @@ struct CreateInvoiceSheet: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
-
-    // Request structure matching backend schema
-    private struct CreateInvoiceRequest: Codable {
-        let clientId: String
-        let dueDate: String
-        let lineItems: [InvoiceLineItemRequest]
-        let notes: String?
-        let currency: String
-
-        enum CodingKeys: String, CodingKey {
-            case clientId = "client_id"
-            case dueDate = "due_date"
-            case lineItems = "line_items"
-            case notes
-            case currency
-        }
-    }
-
-    private struct InvoiceLineItemRequest: Codable {
-        let description: String
-        let quantity: Double
-        let rate: Double
-    }
-
-    private struct InvoiceResponse: Codable {
-        let id: String
-        let invoiceNumber: String
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case invoiceNumber = "invoice_number"
-        }
-    }
+    private let clientRepository = ClientRepository()
+    private let invoiceRepository = InvoiceRepository()
+    private let timeEntryRepository = TimeEntryRepository()
 
     private var totalAmount: Double {
         let lineItemsTotal = lineItems.reduce(0) { $0 + $1.total }
@@ -337,7 +306,7 @@ struct CreateInvoiceSheet: View {
         isLoadingContacts = true
 
         do {
-            contacts = try await apiClient.get("/clients?is_active=true")
+            contacts = try await clientRepository.fetchClients()
         } catch {
             print("Failed to load contacts: \(error)")
             contacts = []
@@ -353,11 +322,8 @@ struct CreateInvoiceSheet: View {
         errorMessage = nil
 
         do {
-            let formatter = ISO8601DateFormatter()
-            let dueDateString = formatter.string(from: dueDate)
-
             // Convert time entries to line items
-            var allLineItems: [InvoiceLineItemRequest] = []
+            var allLineItems: [InvoiceLineItemCreate] = []
 
             // Group time entries by project for cleaner invoices
             let entriesByProject = Dictionary(grouping: selectedTimeEntries) { $0.projectId }
@@ -367,7 +333,7 @@ struct CreateInvoiceSheet: View {
                 let rate = entries.first?.billableRate ?? entries.first?.project?.rate ?? 0
 
                 if totalHours > 0 {
-                    allLineItems.append(InvoiceLineItemRequest(
+                    allLineItems.append(InvoiceLineItemCreate(
                         description: "\(projectName) - \(String(format: "%.1f", totalHours)) hours",
                         quantity: totalHours,
                         rate: rate
@@ -377,28 +343,27 @@ struct CreateInvoiceSheet: View {
 
             // Add manual line items
             for item in lineItems where !item.description.isEmpty && item.rate > 0 {
-                allLineItems.append(InvoiceLineItemRequest(
+                allLineItems.append(InvoiceLineItemCreate(
                     description: item.description,
                     quantity: item.quantity,
                     rate: item.rate
                 ))
             }
 
-            let request = CreateInvoiceRequest(
+            let invoice = try await invoiceRepository.createInvoice(
                 clientId: contact.id,
-                dueDate: dueDateString,
+                projectId: nil,
+                dueDate: dueDate,
                 lineItems: allLineItems,
+                taxRate: nil,
                 notes: notes.isEmpty ? nil : notes,
                 currency: "USD"
             )
 
-            let response: InvoiceResponse = try await apiClient.post("/invoices", body: request)
-
             // Mark time entries as invoiced
             if !selectedTimeEntries.isEmpty {
-                let timeEntryRepository = TimeEntryRepository()
                 let entryIds = selectedTimeEntries.map { $0.id }
-                try await timeEntryRepository.markAsInvoiced(ids: entryIds, invoiceId: response.id)
+                try await timeEntryRepository.markAsInvoiced(ids: entryIds, invoiceId: invoice.id)
             }
 
             isPresented = false

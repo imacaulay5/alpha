@@ -17,7 +17,7 @@ class BillingRulesViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var searchText = ""
 
-    private let apiClient = APIClient.shared
+    private let projectRepository = ProjectRepository()
 
     var activeProjects: [Project] {
         projects.filter { $0.isActive == true }
@@ -47,7 +47,7 @@ class BillingRulesViewModel: ObservableObject {
 
         do {
             // Get all projects (not just active ones)
-            projects = try await apiClient.get("/projects")
+            projects = try await projectRepository.fetchProjects()
         } catch {
             errorMessage = "Failed to load projects: \(error.localizedDescription)"
             projects = []

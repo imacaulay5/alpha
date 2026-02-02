@@ -20,7 +20,7 @@ class ProjectBillingEditViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showingSuccessAlert = false
 
-    private let apiClient = APIClient.shared
+    private let projectRepository = ProjectRepository()
     private let project: Project
     private let onSave: () -> Void
 
@@ -81,29 +81,16 @@ class ProjectBillingEditViewModel: ObservableObject {
         isSaving = true
         errorMessage = nil
 
-        struct UpdateBillingRequest: Codable {
-            let billingModel: String
-            let rate: Double?
-            let budget: Double?
-
-            enum CodingKeys: String, CodingKey {
-                case billingModel = "billing_model"
-                case rate
-                case budget
-            }
-        }
-
         do {
             let rateValue = rate.isEmpty ? nil : Double(rate)
             let budgetValue = useBudget && !budget.isEmpty ? Double(budget) : nil
 
-            let request = UpdateBillingRequest(
+            _ = try await projectRepository.updateProjectBilling(
+                id: project.id,
                 billingModel: billingModel.rawValue,
                 rate: rateValue,
                 budget: budgetValue
             )
-
-            let _: Project = try await apiClient.patch("/projects/\(project.id)", body: request)
 
             showingSuccessAlert = true
             onSave()

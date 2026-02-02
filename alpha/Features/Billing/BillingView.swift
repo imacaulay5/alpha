@@ -23,7 +23,7 @@ class BillingViewModel: ObservableObject {
     @Published var draftCount: Int = 0
     @Published var paidThisMonth: Double = 0
 
-    private let apiClient = APIClient.shared
+    private let invoiceRepository = InvoiceRepository()
 
     var filteredInvoices: [Invoice] {
         switch selectedFilter {
@@ -45,7 +45,7 @@ class BillingViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            invoices = try await apiClient.get("/invoices?select=*,client:clients(*),project:projects(*)&order=created_at.desc")
+            invoices = try await invoiceRepository.fetchInvoices()
             calculateSummaries()
         } catch {
             print("Failed to load invoices: \(error)")
@@ -58,8 +58,7 @@ class BillingViewModel: ObservableObject {
 
     func markAsPaid(_ invoiceId: String) async {
         do {
-            let update = ["status": "PAID", "paid_at": ISO8601DateFormatter().string(from: Date())]
-            let _: Invoice = try await apiClient.patch("/invoices/\(invoiceId)", body: update)
+            _ = try await invoiceRepository.markAsPaid(id: invoiceId)
             await loadInvoices()
         } catch {
             errorMessage = "Failed to update invoice: \(error.localizedDescription)"
@@ -68,8 +67,7 @@ class BillingViewModel: ObservableObject {
 
     func sendInvoice(_ invoiceId: String) async {
         do {
-            let update = ["status": "SENT"]
-            let _: Invoice = try await apiClient.patch("/invoices/\(invoiceId)", body: update)
+            _ = try await invoiceRepository.sendInvoice(id: invoiceId)
             await loadInvoices()
         } catch {
             errorMessage = "Failed to send invoice: \(error.localizedDescription)"
@@ -618,7 +616,7 @@ struct InvoiceDetailSheet: View {
     @State private var isUpdating = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let invoiceRepository = InvoiceRepository()
 
     var body: some View {
         NavigationStack {
@@ -903,8 +901,7 @@ struct InvoiceDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["status": "SENT"]
-            let _: Invoice = try await apiClient.patch("/invoices/\(invoice.id)", body: update)
+            _ = try await invoiceRepository.sendInvoice(id: invoice.id)
             onUpdate()
             dismiss()
         } catch {
@@ -919,8 +916,7 @@ struct InvoiceDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["status": "PAID", "paid_at": ISO8601DateFormatter().string(from: Date())]
-            let _: Invoice = try await apiClient.patch("/invoices/\(invoice.id)", body: update)
+            _ = try await invoiceRepository.markAsPaid(id: invoice.id)
             onUpdate()
             dismiss()
         } catch {

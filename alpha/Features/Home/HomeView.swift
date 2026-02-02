@@ -17,7 +17,7 @@ class HomeViewModel: ObservableObject {
     @Published var recentActivity: RecentActivity?
     @Published var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let dashboardRepository = DashboardRepository()
 
     func loadData() async {
         isLoading = true
@@ -25,8 +25,8 @@ class HomeViewModel: ObservableObject {
 
         do {
             // Load metrics and activity in parallel
-            async let metrics: BusinessMetrics = apiClient.get("/dashboard/business-metrics")
-            async let activity: RecentActivity = apiClient.get("/dashboard/recent-activity")
+            async let metrics = dashboardRepository.fetchBusinessMetrics()
+            async let activity = dashboardRepository.fetchRecentActivity()
 
             let (metricsResult, activityResult) = try await (metrics, activity)
 

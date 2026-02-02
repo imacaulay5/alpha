@@ -23,7 +23,7 @@ class ExpenseViewModel: ObservableObject {
     @Published var pendingCount: Int = 0
     @Published var approvedTotal: Double = 0
 
-    private let apiClient = APIClient.shared
+    private let expenseRepository = ExpenseRepository()
 
     var filteredExpenses: [Expense] {
         var result = expenses
@@ -57,7 +57,7 @@ class ExpenseViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            expenses = try await apiClient.get("/expenses?select=*,project:projects(*)&order=expense_date.desc")
+            expenses = try await expenseRepository.fetchExpenses()
             calculateSummaries()
         } catch {
             errorMessage = "Failed to load expenses: \(error.localizedDescription)"
@@ -69,7 +69,7 @@ class ExpenseViewModel: ObservableObject {
 
     func deleteExpense(_ expenseId: String) async {
         do {
-            let _: [String: Bool] = try await apiClient.delete("/expenses/\(expenseId)")
+            try await expenseRepository.deleteExpense(id: expenseId)
             await loadExpenses()
         } catch {
             errorMessage = "Failed to delete expense: \(error.localizedDescription)"
@@ -78,8 +78,7 @@ class ExpenseViewModel: ObservableObject {
 
     func submitExpense(_ expenseId: String) async {
         do {
-            let update = ["status": "SUBMITTED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expenseId)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expenseId, status: "SUBMITTED")
             await loadExpenses()
         } catch {
             errorMessage = "Failed to submit expense: \(error.localizedDescription)"
@@ -88,8 +87,7 @@ class ExpenseViewModel: ObservableObject {
 
     func approveExpense(_ expenseId: String) async {
         do {
-            let update = ["status": "APPROVED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expenseId)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expenseId, status: "APPROVED")
             await loadExpenses()
         } catch {
             errorMessage = "Failed to approve expense: \(error.localizedDescription)"
@@ -98,8 +96,7 @@ class ExpenseViewModel: ObservableObject {
 
     func rejectExpense(_ expenseId: String) async {
         do {
-            let update = ["status": "REJECTED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expenseId)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expenseId, status: "REJECTED")
             await loadExpenses()
         } catch {
             errorMessage = "Failed to reject expense: \(error.localizedDescription)"
@@ -467,7 +464,8 @@ struct ExpenseFormSheet: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let projectRepository = ProjectRepository()
+    private let expenseRepository = ExpenseRepository()
 
     var isEditing: Bool { expense != nil }
 
@@ -586,7 +584,7 @@ struct ExpenseFormSheet: View {
     private func loadProjects() async {
         isLoadingProjects = true
         do {
-            projects = try await apiClient.get("/projects?is_active=true")
+            projects = try await projectRepository.fetchProjects()
         } catch {
             projects = []
         }
@@ -603,22 +601,31 @@ struct ExpenseFormSheet: View {
         errorMessage = nil
 
         do {
-            let expenseData = ExpenseCreate(
-                description: description,
-                amount: amountValue,
-                currency: "USD",
-                category: category.rawValue,
-                merchant: merchant.isEmpty ? nil : merchant,
-                expenseDate: expenseDate,
-                projectId: selectedProjectId,
-                notes: notes.isEmpty ? nil : notes,
-                status: "DRAFT"
-            )
-
             if let existingExpense = expense {
-                let _: Expense = try await apiClient.put("/expenses/\(existingExpense.id)", body: expenseData)
+                _ = try await expenseRepository.updateExpense(
+                    id: existingExpense.id,
+                    description: description,
+                    amount: amountValue,
+                    currency: "USD",
+                    category: category.rawValue,
+                    merchant: merchant.isEmpty ? nil : merchant,
+                    expenseDate: expenseDate,
+                    projectId: selectedProjectId,
+                    notes: notes.isEmpty ? nil : notes,
+                    status: existingExpense.status.rawValue
+                )
             } else {
-                let _: Expense = try await apiClient.post("/expenses", body: expenseData)
+                _ = try await expenseRepository.createExpense(
+                    description: description,
+                    amount: amountValue,
+                    currency: "USD",
+                    category: category.rawValue,
+                    merchant: merchant.isEmpty ? nil : merchant,
+                    expenseDate: expenseDate,
+                    projectId: selectedProjectId,
+                    notes: notes.isEmpty ? nil : notes,
+                    status: "DRAFT"
+                )
             }
 
             onSave()
@@ -628,26 +635,6 @@ struct ExpenseFormSheet: View {
         }
 
         isSaving = false
-    }
-}
-
-// MARK: - Expense Create DTO
-
-struct ExpenseCreate: Codable {
-    let description: String
-    let amount: Double
-    let currency: String
-    let category: String
-    let merchant: String?
-    let expenseDate: Date
-    let projectId: String?
-    let notes: String?
-    let status: String
-
-    enum CodingKeys: String, CodingKey {
-        case description, amount, currency, category, merchant, notes, status
-        case expenseDate = "expense_date"
-        case projectId = "project_id"
     }
 }
 
@@ -662,7 +649,7 @@ struct ExpenseDetailSheet: View {
     @State private var isUpdating = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let expenseRepository = ExpenseRepository()
 
     var body: some View {
         NavigationStack {
@@ -832,8 +819,7 @@ struct ExpenseDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["status": "SUBMITTED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expense.id)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expense.id, status: "SUBMITTED")
             onUpdate()
             dismiss()
         } catch {
@@ -848,8 +834,7 @@ struct ExpenseDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["status": "APPROVED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expense.id)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expense.id, status: "APPROVED")
             onUpdate()
             dismiss()
         } catch {
@@ -864,8 +849,7 @@ struct ExpenseDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["status": "REJECTED"]
-            let _: Expense = try await apiClient.patch("/expenses/\(expense.id)", body: update)
+            _ = try await expenseRepository.updateStatus(id: expense.id, status: "REJECTED")
             onUpdate()
             dismiss()
         } catch {

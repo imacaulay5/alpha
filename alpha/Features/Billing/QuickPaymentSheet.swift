@@ -24,7 +24,7 @@ struct QuickPaymentSheet: View {
         ("OTHER", "Other")
     ]
 
-    private let apiClient = APIClient.shared
+    private let paymentRepository = PaymentRepository()
 
     var body: some View {
         NavigationStack {
@@ -98,17 +98,12 @@ struct QuickPaymentSheet: View {
         errorMessage = nil
 
         do {
-            let formatter = ISO8601DateFormatter()
-            let dateString = formatter.string(from: paymentDate)
-
-            let request = CreatePaymentRequest(
+            _ = try await paymentRepository.createPayment(
                 amount: amountValue,
                 paymentMethod: paymentMethod,
                 reference: reference,
-                paymentDate: dateString
+                paymentDate: paymentDate
             )
-
-            let _: PaymentResponse = try await apiClient.post("/payments", body: request)
 
             isPresented = false
         } catch {
@@ -116,26 +111,6 @@ struct QuickPaymentSheet: View {
         }
 
         isSubmitting = false
-    }
-
-    // MARK: - Data Models
-
-    private struct CreatePaymentRequest: Codable {
-        let amount: Double
-        let paymentMethod: String
-        let reference: String
-        let paymentDate: String
-
-        enum CodingKeys: String, CodingKey {
-            case amount
-            case paymentMethod = "payment_method"
-            case reference
-            case paymentDate = "payment_date"
-        }
-    }
-
-    private struct PaymentResponse: Codable {
-        let id: String
     }
 }
 

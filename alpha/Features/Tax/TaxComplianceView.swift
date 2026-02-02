@@ -14,14 +14,14 @@ class TaxComplianceViewModel: ObservableObject {
     @Published var dashboard: TaxDashboard?
     @Published var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let taxRepository = TaxRepository()
 
     func loadData() async {
         isLoading = true
         errorMessage = nil
 
         do {
-            dashboard = try await apiClient.get("/tax/dashboard")
+            dashboard = try await taxRepository.fetchTaxDashboard()
         } catch {
             errorMessage = "Failed to load tax data: \(error.localizedDescription)"
         }

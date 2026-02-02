@@ -18,30 +18,8 @@ struct QuickBillSheet: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
-
-    // Request structure matching backend schema
-    private struct CreateExpenseRequest: Codable {
-        let expenseDate: String
-        let lineItems: [ExpenseLineItemRequest]
-        let currency: String
-
-        enum CodingKeys: String, CodingKey {
-            case expenseDate = "expense_date"
-            case lineItems = "line_items"
-            case currency
-        }
-    }
-
-    private struct ExpenseLineItemRequest: Codable {
-        let description: String
-        let amount: Double
-        let category: String
-    }
-
-    private struct ExpenseResponse: Codable {
-        let id: String
-    }
+    private let clientRepository = ClientRepository()
+    private let expenseRepository = ExpenseRepository()
 
     private let categories = [
         ("OFFICE_SUPPLIES", "Office Supplies"),
@@ -254,7 +232,7 @@ struct QuickBillSheet: View {
         isLoadingContacts = true
 
         do {
-            contacts = try await apiClient.get("/clients?is_active=true")
+            contacts = try await clientRepository.fetchClients()
         } catch {
             print("Failed to load contacts: \(error)")
             contacts = []
@@ -268,24 +246,20 @@ struct QuickBillSheet: View {
         errorMessage = nil
 
         do {
-            let formatter = ISO8601DateFormatter()
-            let dateString = formatter.string(from: expenseDate)
-
-            let lineItemRequests = lineItems.map { item in
-                ExpenseLineItemRequest(
+            // Create an expense for each line item
+            for item in lineItems where !item.description.isEmpty && item.amount > 0 {
+                _ = try await expenseRepository.createExpense(
                     description: item.description,
                     amount: item.amount,
-                    category: item.category
+                    currency: "USD",
+                    category: item.category,
+                    merchant: selectedVendor?.name,
+                    expenseDate: expenseDate,
+                    projectId: nil,
+                    notes: nil,
+                    status: "DRAFT"
                 )
             }
-
-            let request = CreateExpenseRequest(
-                expenseDate: dateString,
-                lineItems: lineItemRequests,
-                currency: "USD"
-            )
-
-            let _: ExpenseResponse = try await apiClient.post("/expenses", body: request)
 
             isPresented = false
         } catch {

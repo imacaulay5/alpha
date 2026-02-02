@@ -87,7 +87,7 @@ class TasksViewModel: ObservableObject {
     @Published var totalBillable: Double = 0
     @Published var projectsCount: Int = 0
 
-    private let apiClient = APIClient.shared
+    private let timeEntryRepository = TimeEntryRepository()
 
     // MARK: - Public Methods
 
@@ -100,11 +100,10 @@ class TasksViewModel: ObservableObject {
                 ? (start: customStartDate, end: customEndDate)
                 : billingPeriod.dateRange()
 
-            let formatter = ISO8601DateFormatter()
-            let startDateString = formatter.string(from: dateRange.start)
-            let endDateString = formatter.string(from: dateRange.end)
-
-            timeEntries = try await apiClient.get("/time-entries?start_date=\(startDateString)&end_date=\(endDateString)")
+            timeEntries = try await timeEntryRepository.fetchTimeEntries(
+                startDate: dateRange.start,
+                endDate: dateRange.end
+            )
 
             groupEntries()
             calculateTotals()
@@ -119,7 +118,7 @@ class TasksViewModel: ObservableObject {
 
     func deleteEntry(_ entryId: String) async {
         do {
-            let _: [String: Bool] = try await apiClient.delete("/time-entries/\(entryId)")
+            try await timeEntryRepository.deleteTimeEntry(id: entryId)
             await loadTimeEntries()
         } catch {
             errorMessage = "Failed to delete entry: \(error.localizedDescription)"

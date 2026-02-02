@@ -22,7 +22,9 @@ class ProjectDetailViewModel: ObservableObject {
     @Published var totalHours: Double = 0
     @Published var totalBilled: Double = 0
 
-    private let apiClient = APIClient.shared
+    private let taskRepository = TaskRepository()
+    private let timeEntryRepository = TimeEntryRepository()
+    private let projectRepository = ProjectRepository()
 
     init(project: Project) {
         self.project = project
@@ -34,10 +36,10 @@ class ProjectDetailViewModel: ObservableObject {
 
         do {
             // Load tasks
-            tasks = try await apiClient.get("/tasks?project_id=eq.\(project.id)")
+            tasks = try await taskRepository.fetchTasks(projectId: project.id)
 
             // Load time entries
-            timeEntries = try await apiClient.get("/time_entries?project_id=eq.\(project.id)&order=start_at.desc&limit=20")
+            timeEntries = try await timeEntryRepository.fetchTimeEntries(projectId: project.id)
 
             calculateStats()
         } catch {
@@ -49,10 +51,7 @@ class ProjectDetailViewModel: ObservableObject {
 
     func refreshProject() async {
         do {
-            let projects: [Project] = try await apiClient.get("/projects?id=eq.\(project.id)&select=*,client:clients(*)")
-            if let updated = projects.first {
-                project = updated
-            }
+            project = try await projectRepository.fetchProject(id: project.id)
         } catch {
             // Silently fail
         }

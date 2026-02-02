@@ -16,7 +16,7 @@ class ContactsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let clientRepository = ClientRepository()
 
     // MARK: - Public Methods
 
@@ -25,7 +25,7 @@ class ContactsViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            contacts = try await apiClient.get("/clients?is_active=true")
+            contacts = try await clientRepository.fetchClients()
         } catch {
             errorMessage = "Failed to load contacts: \(error.localizedDescription)"
             contacts = []
@@ -36,7 +36,7 @@ class ContactsViewModel: ObservableObject {
 
     func deleteContact(_ contactId: String) async {
         do {
-            let _: [String: String] = try await apiClient.delete("/clients/\(contactId)")
+            try await clientRepository.deleteClient(id: contactId)
             await loadContacts()
         } catch {
             errorMessage = "Failed to delete contact: \(error.localizedDescription)"

@@ -117,7 +117,7 @@ class TeamViewModel: ObservableObject {
     @Published var isLoadingAudit = false
     @Published var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let teamRepository = TeamRepository()
 
     // Summary stats
     var totalMembers: Int { members.count }
@@ -129,7 +129,7 @@ class TeamViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            members = try await apiClient.get("/organization-members?select=*,user:users(*)")
+            members = try await teamRepository.fetchMembers()
         } catch {
             errorMessage = "Failed to load team members: \(error.localizedDescription)"
             members = []
@@ -142,7 +142,7 @@ class TeamViewModel: ObservableObject {
         isLoadingAudit = true
 
         do {
-            auditLog = try await apiClient.get("/audit-log?select=*,user:users(*)&limit=50&order=created_at.desc")
+            auditLog = try await teamRepository.fetchAuditLog()
         } catch {
             print("Failed to load audit log: \(error)")
             auditLog = []
@@ -153,7 +153,7 @@ class TeamViewModel: ObservableObject {
 
     func removeMember(_ memberId: String) async {
         do {
-            let _: [String: Bool] = try await apiClient.delete("/organization-members/\(memberId)")
+            try await teamRepository.removeMember(id: memberId)
             await loadMembers()
         } catch {
             errorMessage = "Failed to remove member: \(error.localizedDescription)"
@@ -162,8 +162,7 @@ class TeamViewModel: ObservableObject {
 
     func updateMemberRole(_ memberId: String, newRole: String) async {
         do {
-            let update = ["role": newRole]
-            let _: TeamMember = try await apiClient.patch("/organization-members/\(memberId)", body: update)
+            _ = try await teamRepository.updateMemberRole(id: memberId, role: newRole)
             await loadMembers()
         } catch {
             errorMessage = "Failed to update role: \(error.localizedDescription)"
@@ -503,7 +502,7 @@ struct InviteUserSheet: View {
     @State private var isSending = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let teamRepository = TeamRepository()
 
     private let roles = [
         ("ADMIN", "Admin", "Can manage team and billing"),
@@ -588,8 +587,7 @@ struct InviteUserSheet: View {
         errorMessage = nil
 
         do {
-            let invite = ["email": email, "role": selectedRole]
-            let _: [String: String] = try await apiClient.post("/invitations", body: invite)
+            try await teamRepository.sendInvite(email: email, role: selectedRole)
 
             onInvite()
             isPresented = false
@@ -614,7 +612,7 @@ struct MemberDetailSheet: View {
     @State private var isUpdating = false
     @State private var errorMessage: String?
 
-    private let apiClient = APIClient.shared
+    private let teamRepository = TeamRepository()
 
     init(member: TeamMember, onUpdate: @escaping () -> Void) {
         self.member = member
@@ -731,8 +729,7 @@ struct MemberDetailSheet: View {
         errorMessage = nil
 
         do {
-            let update = ["role": newRole]
-            let _: TeamMember = try await apiClient.patch("/organization-members/\(member.id)", body: update)
+            _ = try await teamRepository.updateMemberRole(id: member.id, role: newRole)
             onUpdate()
         } catch {
             errorMessage = "Failed to update role: \(error.localizedDescription)"
@@ -747,7 +744,7 @@ struct MemberDetailSheet: View {
         errorMessage = nil
 
         do {
-            let _: [String: Bool] = try await apiClient.delete("/organization-members/\(member.id)")
+            try await teamRepository.removeMember(id: member.id)
             onUpdate()
             dismiss()
         } catch {

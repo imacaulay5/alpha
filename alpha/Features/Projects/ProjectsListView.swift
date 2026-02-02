@@ -24,7 +24,7 @@ class ProjectsViewModel: ObservableObject {
     @Published var totalBudget: Double = 0
     @Published var hoursThisMonth: Double = 0
 
-    private let apiClient = APIClient.shared
+    private let projectRepository = ProjectRepository()
 
     var filteredProjects: [Project] {
         var result = projects
@@ -57,8 +57,7 @@ class ProjectsViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            // Load projects with client data
-            projects = try await apiClient.get("/projects?select=*,client:clients(*)")
+            projects = try await projectRepository.fetchProjects()
             updateSummaryStats()
         } catch {
             errorMessage = "Failed to load projects: \(error.localizedDescription)"
@@ -70,7 +69,7 @@ class ProjectsViewModel: ObservableObject {
 
     func deleteProject(_ projectId: String) async {
         do {
-            let _: [String: String] = try await apiClient.delete("/projects/\(projectId)")
+            try await projectRepository.deleteProject(id: projectId)
             await loadProjects()
         } catch {
             errorMessage = "Failed to delete project: \(error.localizedDescription)"
@@ -79,8 +78,7 @@ class ProjectsViewModel: ObservableObject {
 
     func archiveProject(_ projectId: String) async {
         do {
-            let update = ["is_active": false]
-            let _: Project = try await apiClient.patch("/projects/\(projectId)", body: update)
+            _ = try await projectRepository.archiveProject(id: projectId)
             await loadProjects()
         } catch {
             errorMessage = "Failed to archive project: \(error.localizedDescription)"

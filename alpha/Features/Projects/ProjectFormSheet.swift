@@ -7,30 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Project Create/Update DTO
-
-struct ProjectCreate: Codable {
-    var name: String
-    var description: String?
-    var clientId: String?
-    var billingModel: String
-    var rate: Double?
-    var budget: Double?
-    var startDate: Date?
-    var endDate: Date?
-    var color: String?
-    var isActive: Bool = true
-
-    enum CodingKeys: String, CodingKey {
-        case name, description, rate, budget, color
-        case clientId = "client_id"
-        case billingModel = "billing_model"
-        case startDate = "start_date"
-        case endDate = "end_date"
-        case isActive = "is_active"
-    }
-}
-
 // MARK: - ProjectFormSheet
 
 struct ProjectFormSheet: View {
@@ -58,7 +34,8 @@ struct ProjectFormSheet: View {
     @State private var clients: [Contact] = []
     @State private var isLoadingClients = true
 
-    private let apiClient = APIClient.shared
+    private let clientRepository = ClientRepository()
+    private let projectRepository = ProjectRepository()
 
     // Available project colors
     private let projectColors = [
@@ -264,7 +241,7 @@ struct ProjectFormSheet: View {
     private func loadClients() async {
         isLoadingClients = true
         do {
-            clients = try await apiClient.get("/clients?is_active=true")
+            clients = try await clientRepository.fetchClients()
         } catch {
             // Silently fail - user can still create project without client
             clients = []
@@ -277,25 +254,29 @@ struct ProjectFormSheet: View {
         errorMessage = nil
 
         do {
-            let projectData = ProjectCreate(
-                name: name,
-                description: description.isEmpty ? nil : description,
-                clientId: selectedClientId,
-                billingModel: billingModel.rawValue,
-                rate: Double(rate),
-                budget: hasBudget ? Double(budget) : nil,
-                startDate: hasStartDate ? startDate : nil,
-                endDate: hasEndDate ? endDate : nil,
-                color: selectedColor,
-                isActive: true
-            )
-
             if let existingProject = project {
                 // Update existing project
-                let _: Project = try await apiClient.put("/projects/\(existingProject.id)", body: projectData)
+                _ = try await projectRepository.updateProject(
+                    id: existingProject.id,
+                    name: name,
+                    clientId: selectedClientId,
+                    description: description.isEmpty ? nil : description,
+                    billingModel: billingModel.rawValue,
+                    rate: Double(rate),
+                    budget: hasBudget ? Double(budget) : nil,
+                    color: selectedColor
+                )
             } else {
                 // Create new project
-                let _: Project = try await apiClient.post("/projects", body: projectData)
+                _ = try await projectRepository.createProject(
+                    name: name,
+                    clientId: selectedClientId,
+                    description: description.isEmpty ? nil : description,
+                    billingModel: billingModel.rawValue,
+                    rate: Double(rate),
+                    budget: hasBudget ? Double(budget) : nil,
+                    color: selectedColor
+                )
             }
 
             onSave()

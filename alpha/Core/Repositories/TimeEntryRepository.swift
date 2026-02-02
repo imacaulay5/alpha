@@ -20,7 +20,7 @@ class TimeEntryRepository {
             .from("time_entries")
             .select("""
                 *,
-                project:projects(id, name, billing_model, rate),
+                project:projects(id, name, billing_model, rate, color),
                 task:tasks(id, name, rate)
             """)
 

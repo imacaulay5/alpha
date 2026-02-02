@@ -103,12 +103,12 @@ class InvoiceRepository {
         return try await fetchInvoice(id: invoice.id)
     }
 
-    private func fetchInvoice(id: String) async throws -> Invoice {
+    func fetchInvoice(id: String) async throws -> Invoice {
         let response = try await supabase
             .from("invoices")
             .select("""
                 *,
-                client:clients(id, name),
+                client:clients(id, name, email),
                 project:projects(id, name),
                 line_items:invoice_line_items(*)
             """)
@@ -118,6 +118,38 @@ class InvoiceRepository {
 
         let invoice: Invoice = try JSONDecoder().decode(Invoice.self, from: response.data)
         return invoice
+    }
+
+    func updateInvoiceStatus(id: String, status: String, paidAt: Date? = nil) async throws -> Invoice {
+        var updateData: [String: AnyJSON] = ["status": try AnyJSON(status)]
+
+        if let paidAt = paidAt {
+            updateData["paid_at"] = try AnyJSON(paidAt.iso8601String)
+        }
+
+        let response = try await supabase
+            .from("invoices")
+            .update(updateData)
+            .eq("id", value: id)
+            .select("""
+                *,
+                client:clients(id, name, email),
+                project:projects(id, name),
+                line_items:invoice_line_items(*)
+            """)
+            .single()
+            .execute()
+
+        let invoice: Invoice = try JSONDecoder().decode(Invoice.self, from: response.data)
+        return invoice
+    }
+
+    func markAsPaid(id: String) async throws -> Invoice {
+        return try await updateInvoiceStatus(id: id, status: "PAID", paidAt: Date())
+    }
+
+    func sendInvoice(id: String) async throws -> Invoice {
+        return try await updateInvoiceStatus(id: id, status: "SENT")
     }
 }
 
