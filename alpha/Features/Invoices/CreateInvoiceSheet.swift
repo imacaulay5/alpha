@@ -275,11 +275,13 @@ struct CreateInvoiceSheet: View {
                         await loadContacts()
                     }
                 })
+                .withAppTheme()
             }
             .sheet(isPresented: $showingTimeEntries) {
                 SelectTimeEntriesSheet(isPresented: $showingTimeEntries) { entries in
                     selectedTimeEntries = entries
                 }
+                .withAppTheme()
             }
         }
     }

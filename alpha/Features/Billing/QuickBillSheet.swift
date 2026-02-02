@@ -208,6 +208,7 @@ struct QuickBillSheet: View {
                         await loadContacts()
                     }
                 })
+                .withAppTheme()
             }
         }
     }

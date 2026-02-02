@@ -247,11 +247,13 @@ struct ExpenseView: View {
                 ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {
                     Task { await viewModel.loadExpenses() }
                 })
+                .withAppTheme()
             }
             .sheet(item: $selectedExpense) { expense in
                 ExpenseDetailSheet(expense: expense, onUpdate: {
                     Task { await viewModel.loadExpenses() }
                 })
+                .withAppTheme()
             }
         }
     }

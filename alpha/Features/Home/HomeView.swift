@@ -145,18 +145,23 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingCreateInvoice) {
                 CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+                    .withAppTheme()
             }
             .sheet(isPresented: $showingQuickEntry) {
                 QuickEntrySheet(isPresented: $showingQuickEntry)
+                    .withAppTheme()
             }
             .sheet(isPresented: $showingAddExpense) {
                 ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {})
+                    .withAppTheme()
             }
             .sheet(isPresented: $showingRecordPayment) {
                 QuickPaymentSheet(isPresented: $showingRecordPayment)
+                    .withAppTheme()
             }
             .sheet(isPresented: $showingAccount) {
                 AccountSheet(isPresented: $showingAccount)
+                    .withAppTheme()
             }
         }
     }

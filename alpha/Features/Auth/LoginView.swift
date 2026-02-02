@@ -238,10 +238,12 @@ struct LoginView: View {
         .sheet(isPresented: $showSignUp) {
             SignUpView()
                 .environmentObject(appState)
+                .withAppTheme()
         }
         .fullScreenCover(isPresented: $viewModel.navigateToOnboarding) {
             OnboardingView(userName: viewModel.userName)
                 .environmentObject(appState)
+                .withAppTheme()
         }
     }
 }

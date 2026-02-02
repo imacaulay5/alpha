@@ -106,6 +106,7 @@ struct ContactsListView: View {
                         await viewModel.loadContacts()
                     }
                 })
+                .withAppTheme()
             }
             .sheet(item: $selectedContact) { contact in
                 ContactFormSheet(isPresented: .constant(true), contact: contact, onSave: {
@@ -114,6 +115,7 @@ struct ContactsListView: View {
                         selectedContact = nil
                     }
                 })
+                .withAppTheme()
             }
         }
     }

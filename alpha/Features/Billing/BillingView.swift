@@ -157,12 +157,15 @@ struct BillingView: View {
                         await viewModel.loadInvoices()
                     }
                 })
+                .withAppTheme()
             }
             .sheet(isPresented: $showingCreateInvoice) {
                 CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+                    .withAppTheme()
             }
             .sheet(isPresented: $showingBillingRules) {
                 BillingRulesSheet(isPresented: $showingBillingRules)
+                    .withAppTheme()
             }
         }
     }

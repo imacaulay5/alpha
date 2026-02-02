@@ -116,6 +116,7 @@ struct ProjectDetailView: View {
                     await viewModel.refreshProject()
                 }
             })
+            .withAppTheme()
         }
     }
 

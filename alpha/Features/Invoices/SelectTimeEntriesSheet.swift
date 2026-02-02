@@ -191,6 +191,7 @@ struct SelectTimeEntriesSheet: View {
                         }
                     }
                 )
+                .withAppTheme()
             }
         }
     }

@@ -228,6 +228,7 @@ struct TeamView: View {
                         await viewModel.loadMembers()
                     }
                 })
+                .withAppTheme()
             }
             .sheet(item: $selectedMember) { member in
                 MemberDetailSheet(member: member, onUpdate: {
@@ -235,6 +236,7 @@ struct TeamView: View {
                         await viewModel.loadMembers()
                     }
                 })
+                .withAppTheme()
             }
         }
     }

@@ -324,6 +324,7 @@ struct TasksView: View {
                             }
                         }
                     )
+                    .withAppTheme()
                 }
             }
         }

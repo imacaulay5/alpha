@@ -154,6 +154,7 @@ struct ProjectsListView: View {
                         await viewModel.loadProjects()
                     }
                 })
+                .withAppTheme()
             }
             .confirmationDialog("Sort By", isPresented: $showingSortOptions) {
                 Button("Name") { }

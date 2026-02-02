@@ -133,21 +133,27 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showingQuickActions) {
             QuickActionsSheet(isPresented: $showingQuickActions, actions: quickActions)
+                .withAppTheme()
         }
         .sheet(isPresented: $showingQuickEntry) {
             QuickEntrySheet(isPresented: $showingQuickEntry)
+                .withAppTheme()
         }
         .sheet(isPresented: $showingCreateInvoice) {
             CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+                .withAppTheme()
         }
         .sheet(isPresented: $showingQuickPayment) {
             QuickPaymentSheet(isPresented: $showingQuickPayment)
+                .withAppTheme()
         }
         .sheet(isPresented: $showingCreateProject) {
             ProjectFormSheet(isPresented: $showingCreateProject, onSave: {})
+                .withAppTheme()
         }
         .sheet(isPresented: $showingAddExpense) {
             ExpenseFormSheet(isPresented: $showingAddExpense, onSave: {})
+                .withAppTheme()
         }
     }
 
