@@ -98,9 +98,14 @@ extension User {
         hasCapability(.createInvoices) && hasCapability(.sendInvoices)
     }
 
-    /// Can access billing features
+    /// Can access billing features (invoices, AR, or personal bills)
     var canAccessBilling: Bool {
-        hasCapability(.viewInvoices) || hasCapability(.viewAccountsReceivable)
+        hasCapability(.viewInvoices) || hasCapability(.viewAccountsReceivable) || hasCapability(.viewBills)
+    }
+
+    /// Can access personal bills & payments
+    var canAccessBills: Bool {
+        hasCapability(.viewBills) || hasCapability(.manageBillPayments)
     }
 
     /// Can approve time entries or expenses

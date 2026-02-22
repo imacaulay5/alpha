@@ -73,11 +73,10 @@ extension AccountType {
                 .quickBill,
                 .recordPayments,
 
-                // Basic Invoicing (for side work)
-                .createInvoices,
-                .sendInvoices,
-                .viewInvoices,
-                .editInvoices,
+                // Bills & Payments
+                .viewBills,
+                .manageBillPayments,
+                .trackRecurringBills,
 
                 // Personal Expenses
                 .submitExpenses,

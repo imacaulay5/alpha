@@ -116,56 +116,64 @@ struct BillingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Picker - only show if user has expense capabilities
-                if appState.hasCapability(.submitExpenses) || appState.hasCapability(.approveExpenses) {
-                    Picker("", selection: $selectedTab) {
-                        Text("Invoices").tag(0)
-                        Text("Expenses").tag(1)
+            if appState.hasCapability(.viewBills) && !appState.hasCapability(.viewInvoices) {
+                // Personal users: show bills placeholder
+                PersonalBillsPlaceholderView()
+                    .navigationTitle("Bills & Payments")
+                    .navigationBarTitleDisplayMode(.inline)
+            } else {
+                // Freelancer / Business users: full invoice management
+                VStack(spacing: 0) {
+                    // Tab Picker - only show if user has expense capabilities
+                    if appState.hasCapability(.submitExpenses) || appState.hasCapability(.approveExpenses) {
+                        Picker("", selection: $selectedTab) {
+                            Text("Invoices").tag(0)
+                            Text("Expenses").tag(1)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding()
                     }
-                    .pickerStyle(.segmented)
-                    .padding()
-                }
 
-                // Content
-                if selectedTab == 0 {
-                    invoicesContent
-                } else {
-                    ExpenseViewContent()
+                    // Content
+                    if selectedTab == 0 {
+                        invoicesContent
+                    } else {
+                        ExpenseViewContent()
+                    }
                 }
-            }
-            .background(Color.alphaGroupedBackground)
-            .navigationTitle("Billing")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if appState.hasCapability(.configureBillingRules) {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            Button(action: { showingBillingRules = true }) {
-                                Label("Billing Rules", systemImage: "gearshape")
+                .background(Color.alphaGroupedBackground)
+                .navigationTitle("Billing")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    if appState.hasCapability(.configureBillingRules) {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Menu {
+                                Button(action: { showingBillingRules = true }) {
+                                    Label("Billing Rules", systemImage: "gearshape")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 17, weight: .medium))
                             }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 17, weight: .medium))
                         }
                     }
                 }
-            }
-            .sheet(item: $selectedInvoice) { invoice in
-                InvoiceDetailSheet(invoice: invoice, onUpdate: {
-                    Task {
-                        await viewModel.loadInvoices()
-                    }
-                })
-                .withAppTheme()
-            }
-            .sheet(isPresented: $showingCreateInvoice) {
-                CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+                .sheet(item: $selectedInvoice) { invoice in
+                    InvoiceDetailSheet(invoice: invoice, onUpdate: {
+                        Task {
+                            await viewModel.loadInvoices()
+                        }
+                    })
                     .withAppTheme()
-            }
-            .sheet(isPresented: $showingBillingRules) {
-                BillingRulesSheet(isPresented: $showingBillingRules)
-                    .withAppTheme()
+                }
+                .sheet(isPresented: $showingCreateInvoice) {
+                    CreateInvoiceSheet(isPresented: $showingCreateInvoice)
+                        .withAppTheme()
+                }
+                .sheet(isPresented: $showingBillingRules) {
+                    BillingRulesSheet(isPresented: $showingBillingRules)
+                        .withAppTheme()
+                }
             }
         }
     }
@@ -975,6 +983,52 @@ struct DetailRow: View {
                 .foregroundColor(.primary)
         }
         .font(.system(size: 15))
+    }
+}
+
+// MARK: - Personal Bills Placeholder
+
+struct PersonalBillsPlaceholderView: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer().frame(height: 32)
+
+                Image(systemName: "list.bullet.rectangle.portrait")
+                    .font(.system(size: 56))
+                    .foregroundColor(.alphaSecondaryText)
+
+                VStack(spacing: 8) {
+                    Text("Bills & Payments")
+                        .font(.alphaTitle)
+                        .foregroundColor(.alphaPrimaryText)
+
+                    Text("Track your recurring bills and payment history.")
+                        .font(.alphaBody)
+                        .foregroundColor(.alphaSecondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                VStack(spacing: 12) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 20))
+                        .foregroundColor(.alphaSecondaryText)
+
+                    Text("Full bills management is available on the web app at alpha.app")
+                        .font(.alphaBodySmall)
+                        .foregroundColor(.alphaTertiaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .padding()
+                .background(Color.alphaCardBackground)
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color.alphaGroupedBackground)
     }
 }
 

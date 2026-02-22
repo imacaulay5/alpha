@@ -151,6 +151,17 @@ enum Capability: String, CaseIterable {
     /// Process reimbursements
     case reimburseExpenses
 
+    // MARK: - Bills & Payments (Personal)
+
+    /// View personal bills
+    case viewBills
+
+    /// Manage personal bill payments
+    case manageBillPayments
+
+    /// Recurring bill management
+    case trackRecurringBills
+
     // MARK: - Accounting & Finance
 
     /// AR dashboard
@@ -176,6 +187,9 @@ enum Capability: String, CaseIterable {
 
     /// Manual accounting entries
     case recordJournalEntries
+
+    /// View P&L, Balance Sheet (business reporting)
+    case viewFinancialReports
 
     // MARK: - Inventory (for product businesses)
 
