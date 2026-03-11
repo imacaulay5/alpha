@@ -410,6 +410,6 @@ class InvoicePDFGenerator {
     }
 
     private func formatPercentage(_ value: Double) -> String {
-        return String(format: "%.1f%%", value * 100)
+        return String(format: "%.1f%%", value)
     }
 }

@@ -20,6 +20,8 @@ class AppState: ObservableObject {
 
     private let authService = AuthService.shared
     private var authStateTask: Task<Void, Never>?
+    private var restoreTask: Task<Void, Never>?
+    private var restoreGeneration = UUID()
 
     // MARK: - Initialization
 
@@ -28,9 +30,10 @@ class AppState: ObservableObject {
         authStateTask = authService.observeAuthStateChanges { [weak self] event, session in
             Task { @MainActor in
                 switch event {
-                case .signedIn:
-                    await self?.onSignedIn()
+                case .signedIn, .initialSession:
+                    await self?.restoreAuthenticatedState(trigger: "authState:\(event)")
                 case .signedOut:
+                    self?.cancelRestoreTask()
                     self?.onSignedOut()
                 default:
                     break
@@ -41,43 +44,21 @@ class AppState: ObservableObject {
 
     deinit {
         authStateTask?.cancel()
+        restoreTask?.cancel()
     }
 
     func checkAuthStatus() async {
-        isLoading = true
-
-        let isAuth = await authService.checkAuthStatus()
-
-        if isAuth {
-            // Fetch current user and organization
-            do {
-                let user = try await authService.getCurrentUser()
-                self.currentUser = user
-                self.isAuthenticated = true
-
-                // TODO: Fetch organization
-                // For now, we'll wait for the login response to provide it
-            } catch {
-                print("Failed to fetch current user: \(error)")
-                isAuthenticated = false
-                currentUser = nil
-                organization = nil
-            }
-        } else {
-            isAuthenticated = false
-            currentUser = nil
-            organization = nil
-        }
-
-        isLoading = false
+        await restoreAuthenticatedState(trigger: "launch")
     }
 
     // MARK: - Authentication
 
     func login(user: User, organization: Organization?) {
+        cancelRestoreTask()
         self.currentUser = user
         self.organization = organization  // Can be nil for personal/freelancer accounts
         self.isAuthenticated = true
+        self.isLoading = false
         self.error = nil
     }
 
@@ -86,9 +67,11 @@ class AppState: ObservableObject {
     }
 
     func logout() {
+        cancelRestoreTask()
         self.currentUser = nil
         self.organization = nil
         self.isAuthenticated = false
+        self.isLoading = false
         self.error = nil
     }
 
@@ -104,29 +87,67 @@ class AppState: ObservableObject {
 
     // MARK: - Private Helpers
 
-    private func onSignedIn() async {
-        do {
-            // Use getUserInfo() instead of getCurrentUser() to handle new users
-            // who don't have a database record yet
-            if let user = try await authService.getUserInfo() {
-                self.currentUser = user
-                self.isAuthenticated = true
-                print("✅ AppState.onSignedIn: User found in database")
-            } else {
-                // User authenticated but no database record yet (new user during signup)
-                print("ℹ️ AppState.onSignedIn: User authenticated but no database record yet")
-                // Don't set isAuthenticated here - let the signup/login flow handle it
-            }
-        } catch {
-            print("❌ AppState.onSignedIn: Error fetching user: \(error)")
-            onSignedOut()
+    private func restoreAuthenticatedState(trigger: String) async {
+        restoreTask?.cancel()
+        let generation = UUID()
+        restoreGeneration = generation
+
+        let task = Task { @MainActor [weak self] in
+            await self?.performRestore(trigger: trigger)
         }
+
+        restoreTask = task
+        await task.value
+
+        if restoreGeneration == generation {
+            restoreTask = nil
+        }
+    }
+
+    private func performRestore(trigger: String) async {
+        isLoading = true
+        error = nil
+
+        do {
+            guard let restoredState = try await authService.restoreAuthenticatedState() else {
+                onSignedOut()
+                isLoading = false
+                return
+            }
+
+            currentUser = restoredState.user
+            organization = restoredState.organization
+            isAuthenticated = true
+            isLoading = false
+
+            print("✅ AppState.performRestore(\(trigger)): restored user=\(restoredState.user.id) org=\(restoredState.organization?.id ?? \"none\")")
+        } catch is CancellationError {
+            print("ℹ️ AppState.performRestore(\(trigger)): cancelled")
+        } catch {
+            print("❌ AppState.performRestore(\(trigger)): failed: \(error)")
+            enterRecoveryState(for: error)
+        }
+    }
+
+    private func enterRecoveryState(for error: Error) {
+        currentUser = nil
+        organization = nil
+        isAuthenticated = false
+        isLoading = false
+        self.error = "We couldn’t restore your session. Please sign in again."
+    }
+
+    private func cancelRestoreTask() {
+        restoreGeneration = UUID()
+        restoreTask?.cancel()
+        restoreTask = nil
     }
 
     private func onSignedOut() {
         self.currentUser = nil
         self.organization = nil
         self.isAuthenticated = false
+        self.isLoading = false
     }
 }
 

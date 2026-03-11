@@ -17,6 +17,8 @@ struct InvoiceLineItem: Codable, Identifiable {
     let rate: Double
     let amount: Double
     let order: Int
+    let createdAt: Date?
+    let updatedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -26,6 +28,8 @@ struct InvoiceLineItem: Codable, Identifiable {
         case rate
         case amount
         case order
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 
     var total: Double {
@@ -42,7 +46,9 @@ extension InvoiceLineItem {
         quantity: 40,
         rate: 150.0,
         amount: 6000.0,
-        order: 0
+        order: 0,
+        createdAt: Date(),
+        updatedAt: Date()
     )
 
     static let preview2 = InvoiceLineItem(
@@ -52,18 +58,39 @@ extension InvoiceLineItem {
         quantity: 1,
         rate: 500.0,
         amount: 500.0,
-        order: 1
+        order: 1,
+        createdAt: Date(),
+        updatedAt: Date()
     )
 }
 
 // MARK: - Invoice Status
 
 enum InvoiceStatus: String, Codable {
-    case draft = "DRAFT"
-    case sent = "SENT"
-    case paid = "PAID"
-    case overdue = "OVERDUE"
-    case cancelled = "CANCELLED"
+    case draft = "draft"
+    case sent = "sent"
+    case paid = "paid"
+    case overdue = "overdue"
+    case cancelled = "cancelled"
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).lowercased()
+
+        guard let status = InvoiceStatus(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid invoice status: \(rawValue)"
+            )
+        }
+
+        self = status
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 
     var displayName: String {
         switch self {
@@ -84,7 +111,8 @@ enum InvoiceStatus: String, Codable {
 struct Invoice: Codable, Identifiable {
     let id: String
     let organizationId: String?
-    let clientId: String
+    let userId: String?
+    let clientId: String?
     let projectId: String?
     let invoiceNumber: String
     let issueDate: Date
@@ -108,6 +136,7 @@ struct Invoice: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id
         case organizationId = "organization_id"
+        case userId = "user_id"
         case clientId = "client_id"
         case projectId = "project_id"
         case invoiceNumber = "invoice_number"
@@ -153,13 +182,14 @@ extension Invoice {
     static let preview = Invoice(
         id: "invoice_1",
         organizationId: "org_1",
+        userId: "user_1",
         clientId: "client_1",
         projectId: "project_1",
         invoiceNumber: "INV-2025-001",
         issueDate: Date(),
         dueDate: Date().addingTimeInterval(60 * 60 * 24 * 30), // 30 days
         subtotal: 15000.00,
-        taxRate: 0.0825,
+        taxRate: 8.25,
         taxAmount: 1237.50,
         total: 16237.50,
         currency: "USD",
