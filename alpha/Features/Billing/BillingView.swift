@@ -777,7 +777,7 @@ struct InvoiceDetailSheet: View {
                         DetailRow(label: "Subtotal", value: String(format: "$%.2f", invoice.subtotal))
 
                         if let taxRate = invoice.taxRate, let taxAmount = invoice.taxAmount {
-                            DetailRow(label: "Tax (\(String(format: "%.1f%%", taxRate * 100)))", value: String(format: "$%.2f", taxAmount))
+                            DetailRow(label: "Tax (\(String(format: "%.1f%%", taxRate)))", value: String(format: "$%.2f", taxAmount))
                         }
 
                         Divider()

@@ -36,30 +36,7 @@ class AuthService {
             password: password
         )
 
-        // Fetch user data from database
-        let user: User = try await supabase
-            .from("users")
-            .select()
-            .eq("id", value: session.user.id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        // Fetch organization data if user has one
-        let organization: Organization?
-        if let orgId = user.organizationId {
-            organization = try await supabase
-                .from("organizations")
-                .select()
-                .eq("id", value: orgId)
-                .single()
-                .execute()
-                .value
-        } else {
-            organization = nil
-        }
-
-        return (user, organization)
+        return try await fetchAuthenticatedAppState(for: session)
     }
 
     // MARK: - Logout
@@ -75,15 +52,7 @@ class AuthService {
             throw AuthError.notAuthenticated
         }
 
-        let user: User = try await supabase
-            .from("users")
-            .select()
-            .eq("id", value: session.user.id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        return user
+        return try await fetchUser(for: session)
     }
 
     // MARK: - Get User Info (returns nil if not exists)
@@ -94,10 +63,6 @@ class AuthService {
         }
 
         do {
-            // Configure decoder for Supabase's timestamp format
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-
             let response = try await supabase
                 .from("users")
                 .select()
@@ -105,11 +70,27 @@ class AuthService {
                 .single()
                 .execute()
 
-            let user = try decoder.decode(User.self, from: response.data)
-            return user
+            return try decoder.decode(User.self, from: response.data)
         } catch {
             // User doesn't exist in database yet
             return nil
+        }
+    }
+
+    // MARK: - Restore Authenticated State
+
+    func restoreAuthenticatedState() async throws -> RestoredAppState? {
+        guard let session = supabase.auth.currentSession else {
+            return nil
+        }
+
+        do {
+            let (user, organization) = try await fetchAuthenticatedAppState(for: session)
+            return RestoredAppState(user: user, organization: organization)
+        } catch {
+            print("❌ AuthService.restoreAuthenticatedState: failed to hydrate restored session: \(error)")
+            try? await supabase.auth.signOut()
+            throw AuthError.restoreFailed(underlying: error)
         }
     }
 
@@ -133,10 +114,6 @@ class AuthService {
             role: accountType.defaultRole
         )
 
-        // Configure decoder for Supabase's timestamp format
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
         let response = try await supabase
             .from("users")
             .insert(userInsert)
@@ -153,9 +130,6 @@ class AuthService {
     // MARK: - Get Organization
 
     func getOrganization(_ organizationId: String) async throws -> Organization {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
         let organization: Organization = try await supabase
             .from("organizations")
             .select()
@@ -182,16 +156,9 @@ class AuthService {
     // MARK: - Check Auth Status
 
     func checkAuthStatus() async -> Bool {
-        guard supabase.auth.currentSession != nil else {
-            return false
-        }
-
-        // Verify session is still valid
         do {
-            _ = try await getCurrentUser()
-            return true
+            return try await restoreAuthenticatedState() != nil
         } catch {
-            try? await supabase.auth.signOut()
             return false
         }
     }
@@ -329,16 +296,24 @@ class AuthService {
         print("🔍 AuthService.userHasOrganization: Checking for user: \(userId)")
 
         do {
-            _ = try await supabase
+            let response = try await supabase
                 .from("users")
                 .select("organization_id")
                 .eq("id", value: userId.uuidString)
                 .single()
                 .execute()
 
-            // If we get here, user exists in the users table
-            print("✅ AuthService.userHasOrganization: User has organization")
-            return true
+            struct OrganizationPresence: Decodable {
+                let organizationId: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case organizationId = "organization_id"
+                }
+            }
+
+            let presence = try decoder.decode(OrganizationPresence.self, from: response.data)
+            print("✅ AuthService.userHasOrganization: User exists; organization_id=\(presence.organizationId ?? "nil")")
+            return presence.organizationId != nil
         } catch {
             // User doesn't exist in users table yet (no organization)
             print("❌ AuthService.userHasOrganization: User has no organization: \(error)")
@@ -398,10 +373,6 @@ class AuthService {
                 .single()
                 .execute()
 
-            // Configure decoder for Supabase's timestamp format
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-
             let organization: Organization = try decoder.decode(Organization.self, from: orgResponse.data)
             print("✅ AuthService.setupOrganization: Organization created with ID: \(organization.id)")
 
@@ -439,6 +410,39 @@ class AuthService {
             throw error
         }
     }
+
+    // MARK: - Private Helpers
+
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    private func fetchAuthenticatedAppState(for session: Session) async throws -> (User, Organization?) {
+        let user = try await fetchUser(for: session)
+        let organization = try await fetchOrganizationIfNeeded(for: user)
+        return (user, organization)
+    }
+
+    private func fetchUser(for session: Session) async throws -> User {
+        let response = try await supabase
+            .from("users")
+            .select()
+            .eq("id", value: session.user.id.uuidString)
+            .single()
+            .execute()
+
+        return try decoder.decode(User.self, from: response.data)
+    }
+
+    private func fetchOrganizationIfNeeded(for user: User) async throws -> Organization? {
+        guard let organizationId = user.organizationId else {
+            return nil
+        }
+
+        return try await getOrganization(organizationId)
+    }
 }
 
 // MARK: - Auth Errors
@@ -447,6 +451,7 @@ enum AuthError: Error, LocalizedError {
     case notAuthenticated
     case signUpFailed
     case sessionNotEstablished
+    case restoreFailed(underlying: Error)
 
     var errorDescription: String? {
         switch self {
@@ -456,8 +461,15 @@ enum AuthError: Error, LocalizedError {
             return "Failed to sign up user"
         case .sessionNotEstablished:
             return "Session could not be established after verification"
+        case .restoreFailed(let underlying):
+            return "Failed to restore authenticated app state: \(underlying.localizedDescription)"
         }
     }
+}
+
+struct RestoredAppState {
+    let user: User
+    let organization: Organization?
 }
 
 // MARK: - Insert DTOs
@@ -507,4 +519,3 @@ struct PersonalUserInsert: Codable {
         case role
     }
 }
-

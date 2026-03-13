@@ -23,6 +23,15 @@ struct AppCoordinator: View {
                 LoginView()
             }
         }
+        .overlay(alignment: .top) {
+            if let error = appState.error, !appState.isAuthenticated {
+                RecoveryBanner(message: error) {
+                    appState.clearError()
+                }
+                .padding(.top, 12)
+                .padding(.horizontal, 16)
+            }
+        }
     }
 }
 
@@ -42,6 +51,36 @@ struct LoadingView: View {
                     .foregroundColor(.alphaSecondaryText)
             }
         }
+    }
+}
+
+private struct RecoveryBanner: View {
+    let message: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.yellow)
+
+            Text(message)
+                .font(.alphaBody)
+                .foregroundColor(.alphaText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button("Dismiss", action: dismiss)
+                .font(.caption.weight(.semibold))
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.alphaSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.yellow.opacity(0.4), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
     }
 }
 
