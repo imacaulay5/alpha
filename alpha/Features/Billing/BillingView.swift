@@ -113,67 +113,79 @@ struct BillingView: View {
     @State private var selectedInvoice: Invoice?
     @State private var showingCreateInvoice = false
     @State private var showingBillingRules = false
+    var showSectionPicker = true
+    var embeddedInParentNavigation = false
 
     var body: some View {
-        NavigationStack {
-            if appState.hasCapability(.viewBills) && !appState.hasCapability(.viewInvoices) {
-                // Personal users: show bills placeholder
-                PersonalBillsPlaceholderView()
-                    .navigationTitle("Bills & Payments")
-                    .navigationBarTitleDisplayMode(.inline)
+        Group {
+            if embeddedInParentNavigation {
+                billingBody
             } else {
-                // Freelancer / Business users: full invoice management
-                VStack(spacing: 0) {
-                    // Tab Picker - only show if user has expense capabilities
-                    if appState.hasCapability(.submitExpenses) || appState.hasCapability(.approveExpenses) {
-                        Picker("", selection: $selectedTab) {
-                            Text("Invoices").tag(0)
-                            Text("Expenses").tag(1)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding()
-                    }
+                NavigationStack {
+                    billingBody
+                }
+            }
+        }
+    }
 
-                    // Content
-                    if selectedTab == 0 {
-                        invoicesContent
-                    } else {
-                        ExpenseViewContent()
-                    }
-                }
-                .background(Color.alphaGroupedBackground)
-                .navigationTitle("Billing")
+    @ViewBuilder
+    private var billingBody: some View {
+        if appState.hasCapability(.viewBills) && !appState.hasCapability(.viewInvoices) {
+            BillsView()
+                .navigationTitle("Bills & Payments")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if appState.hasCapability(.configureBillingRules) {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Menu {
-                                Button(action: { showingBillingRules = true }) {
-                                    Label("Billing Rules", systemImage: "gearshape")
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: 17, weight: .medium))
+        } else {
+            // Freelancer / Business users: full invoice management
+            VStack(spacing: 0) {
+                // Tab Picker - only show if user has expense capabilities
+                if showSectionPicker && (appState.hasCapability(.submitExpenses) || appState.hasCapability(.approveExpenses)) {
+                    Picker("", selection: $selectedTab) {
+                        Text("Invoices").tag(0)
+                        Text("Expenses").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding()
+                }
+
+                // Content
+                if selectedTab == 0 {
+                    invoicesContent
+                } else {
+                    ExpenseViewContent()
+                }
+            }
+            .background(Color.alphaGroupedBackground)
+            .navigationTitle(embeddedInParentNavigation ? "Money" : "Billing")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if appState.hasCapability(.configureBillingRules) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button(action: { showingBillingRules = true }) {
+                                Label("Billing Rules", systemImage: "gearshape")
                             }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 17, weight: .medium))
                         }
                     }
                 }
-                .sheet(item: $selectedInvoice) { invoice in
-                    InvoiceDetailSheet(invoice: invoice, onUpdate: {
-                        Task {
-                            await viewModel.loadInvoices()
-                        }
-                    })
+            }
+            .sheet(item: $selectedInvoice) { invoice in
+                InvoiceDetailSheet(invoice: invoice, onUpdate: {
+                    Task {
+                        await viewModel.loadInvoices()
+                    }
+                })
+                .withAppTheme()
+            }
+            .sheet(isPresented: $showingCreateInvoice) {
+                CreateInvoiceSheet(isPresented: $showingCreateInvoice)
                     .withAppTheme()
-                }
-                .sheet(isPresented: $showingCreateInvoice) {
-                    CreateInvoiceSheet(isPresented: $showingCreateInvoice)
-                        .withAppTheme()
-                }
-                .sheet(isPresented: $showingBillingRules) {
-                    BillingRulesSheet(isPresented: $showingBillingRules)
-                        .withAppTheme()
-                }
+            }
+            .sheet(isPresented: $showingBillingRules) {
+                BillingRulesSheet(isPresented: $showingBillingRules)
+                    .withAppTheme()
             }
         }
     }
@@ -276,6 +288,291 @@ struct BillingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
+    }
+}
+
+// MARK: - Bills
+
+@MainActor
+class BillsViewModel: ObservableObject {
+    @Published var bills: [Bill] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var selectedFilter: BillListFilter = .open
+
+    @Published var unpaidTotal: Double = 0
+    @Published var dueThisWeekCount = 0
+    @Published var paidThisMonthTotal: Double = 0
+
+    private let billRepository = BillRepository()
+
+    var filteredBills: [Bill] {
+        switch selectedFilter {
+        case .open:
+            return bills.filter { !$0.isPaid && $0.status != .cancelled }
+        case .all:
+            return bills
+        case .paid:
+            return bills.filter { $0.isPaid }
+        case .overdue:
+            return bills.filter { $0.isOverdue }
+        }
+    }
+
+    func loadBills() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            bills = try await billRepository.fetchBills()
+            calculateSummaries()
+        } catch {
+            errorMessage = "Failed to load bills: \(error.localizedDescription)"
+            bills = []
+            calculateSummaries()
+        }
+
+        isLoading = false
+    }
+
+    func markPaid(_ bill: Bill) async {
+        do {
+            _ = try await billRepository.markBillPaid(id: bill.id)
+            await loadBills()
+        } catch {
+            errorMessage = "Failed to mark bill paid: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteBill(_ bill: Bill) async {
+        do {
+            try await billRepository.deleteBill(id: bill.id)
+            await loadBills()
+        } catch {
+            errorMessage = "Failed to delete bill: \(error.localizedDescription)"
+        }
+    }
+
+    private func calculateSummaries() {
+        let calendar = Calendar.current
+        let now = Date()
+        let weekFromNow = calendar.date(byAdding: .day, value: 7, to: now) ?? now
+        let startOfMonth = calendar.dateInterval(of: .month, for: now)?.start ?? now
+
+        let openBills = bills.filter { !$0.isPaid && $0.status != .cancelled }
+        unpaidTotal = openBills.reduce(0) { $0 + $1.amount }
+        dueThisWeekCount = openBills.filter { $0.dueDate >= now && $0.dueDate <= weekFromNow }.count
+        paidThisMonthTotal = bills.filter { bill in
+            guard bill.isPaid, let paidAt = bill.paidAt else { return false }
+            return paidAt >= startOfMonth
+        }.reduce(0) { $0 + $1.amount }
+    }
+}
+
+enum BillListFilter: String, CaseIterable, Identifiable {
+    case open = "Open"
+    case all = "All"
+    case paid = "Paid"
+    case overdue = "Overdue"
+
+    var id: String { rawValue }
+}
+
+struct BillsView: View {
+    @StateObject private var viewModel = BillsViewModel()
+    @State private var showingNewBill = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                HStack(spacing: 12) {
+                    BillingSummaryCard(
+                        title: "Open",
+                        count: viewModel.bills.filter { !$0.isPaid && $0.status != .cancelled }.count,
+                        total: viewModel.unpaidTotal,
+                        icon: "creditcard",
+                        color: .blue
+                    )
+
+                    BillingSummaryCard(
+                        title: "Paid MTD",
+                        count: nil,
+                        total: viewModel.paidThisMonthTotal,
+                        icon: "checkmark.circle",
+                        color: .green
+                    )
+                }
+                .padding(.horizontal)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(BillListFilter.allCases) { filter in
+                            FilterPill(
+                                title: filter.rawValue,
+                                count: countForFilter(filter),
+                                isSelected: viewModel.selectedFilter == filter
+                            ) {
+                                viewModel.selectedFilter = filter
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                if viewModel.isLoading {
+                    ProgressView()
+                        .padding(.top, 40)
+                } else if viewModel.filteredBills.isEmpty {
+                    emptyState
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.filteredBills) { bill in
+                            BillCard(bill: bill) {
+                                Task { await viewModel.markPaid(bill) }
+                            } onDelete: {
+                                Task { await viewModel.deleteBill(bill) }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color.alphaGroupedBackground)
+        .navigationTitle("Bills")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { showingNewBill = true }) {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .refreshable {
+            await viewModel.loadBills()
+        }
+        .task {
+            await viewModel.loadBills()
+        }
+        .sheet(isPresented: $showingNewBill) {
+            QuickBillSheet(isPresented: $showingNewBill)
+                .withAppTheme()
+        }
+        .alert("Bills Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button("OK") {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
+    }
+
+    private func countForFilter(_ filter: BillListFilter) -> Int {
+        switch filter {
+        case .open:
+            return viewModel.bills.filter { !$0.isPaid && $0.status != .cancelled }.count
+        case .all:
+            return viewModel.bills.count
+        case .paid:
+            return viewModel.bills.filter { $0.isPaid }.count
+        case .overdue:
+            return viewModel.bills.filter { $0.isOverdue }.count
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "creditcard")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+
+            Text("No bills yet")
+                .font(.headline)
+                .foregroundColor(.primary)
+
+            Text("Tap + to add a vendor bill")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+}
+
+private struct BillCard: View {
+    let bill: Bill
+    var onMarkPaid: () -> Void
+    var onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(bill.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.alphaPrimaryText)
+
+                    Text(bill.payee)
+                        .font(.system(size: 14))
+                        .foregroundColor(.alphaSecondaryText)
+                }
+
+                Spacer()
+
+                Text(bill.amountFormatted)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.alphaPrimaryText)
+            }
+
+            HStack {
+                Label(bill.dueDate.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+                    .font(.system(size: 13))
+                    .foregroundColor(bill.isOverdue ? .red : .alphaSecondaryText)
+
+                Spacer()
+
+                Text(bill.status.displayName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(statusColor)
+                    .cornerRadius(8)
+            }
+
+            if !bill.isPaid {
+                Button(action: onMarkPaid) {
+                    Label("Mark Paid", systemImage: "checkmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding()
+        .background(Color.alphaCardBackground)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private var statusColor: Color {
+        switch bill.status {
+        case .paid:
+            return .green
+        case .overdue:
+            return .red
+        case .due:
+            return .orange
+        case .cancelled:
+            return .gray
+        case .upcoming:
+            return .blue
+        }
     }
 }
 

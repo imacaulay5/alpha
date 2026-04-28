@@ -19,7 +19,7 @@ struct QuickBillSheet: View {
     @State private var errorMessage: String?
 
     private let clientRepository = ClientRepository()
-    private let expenseRepository = ExpenseRepository()
+    private let billRepository = BillRepository()
 
     private let categories = [
         ("OFFICE_SUPPLIES", "Office Supplies"),
@@ -144,7 +144,7 @@ struct QuickBillSheet: View {
                 }
 
                 Section {
-                    DatePicker("Date", selection: $expenseDate, displayedComponents: .date)
+                    DatePicker("Due Date", selection: $expenseDate, displayedComponents: .date)
                 } header: {
                     Text("Additional Details")
                         .font(.headline)
@@ -152,7 +152,7 @@ struct QuickBillSheet: View {
                         .textCase(nil)
                 }
             }
-            .navigationTitle("Quick Bill")
+            .navigationTitle("New Bill")
             .navigationBarTitleDisplayMode(.inline)
             .overlay {
                 if isSubmitting {
@@ -247,18 +247,20 @@ struct QuickBillSheet: View {
         errorMessage = nil
 
         do {
-            // Create an expense for each line item
+            guard let vendor = selectedVendor else { return }
+
+            // Create one bill per entered line item. This keeps the mobile
+            // quick-entry path aligned with the web bills table instead of
+            // silently writing bills as expenses.
             for item in lineItems where !item.description.isEmpty && item.amount > 0 {
-                _ = try await expenseRepository.createExpense(
-                    description: item.description,
+                _ = try await billRepository.createBill(
+                    name: item.description,
+                    payee: vendor.name,
                     amount: item.amount,
-                    currency: "USD",
                     category: item.category,
-                    merchant: selectedVendor?.name,
-                    expenseDate: expenseDate,
-                    projectId: nil,
-                    notes: nil,
-                    status: "DRAFT"
+                    dueDate: expenseDate,
+                    recurrence: .none,
+                    notes: nil
                 )
             }
 

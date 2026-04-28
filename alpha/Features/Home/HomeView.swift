@@ -46,6 +46,7 @@ struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
     @State private var showingCreateInvoice = false
+    @State private var showingQuickBill = false
     @State private var showingQuickEntry = false
     @State private var showingAddExpense = false
     @State private var showingRecordPayment = false
@@ -64,24 +65,34 @@ struct HomeView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.top, 100)
-                    } else if hasNoData {
-                        EmptyStateView(
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Money Overview")
+                                .font(.alphaTitle)
+                                .foregroundColor(.alphaPrimaryText)
+
+                            Text("Welcome back, \(appState.currentUser?.name.components(separatedBy: " ").first ?? "there") — here are the financial items that need attention.")
+                                .font(.alphaBody)
+                                .foregroundColor(.alphaSecondaryText)
+
+                            metricsSection
+                        }
+                        .padding(.horizontal)
+
+                        DashboardNextStepsView()
+                            .padding(.horizontal)
+
+                        DashboardQuickActionsView(
                             onCreateInvoice: { showingCreateInvoice = true },
+                            onNewBill: { showingQuickBill = true },
                             onLogHours: { showingQuickEntry = true },
                             onAddExpense: { showingAddExpense = true },
                             onRecordPayment: { showingRecordPayment = true }
                         )
-                    } else {
-                        // Welcome & Account-Specific Metrics
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Welcome back, \(appState.currentUser?.name.components(separatedBy: " ").first ?? "")!")
-                                .font(.alphaTitle)
-                                .foregroundColor(.alphaPrimaryText)
-
-                            // Show different metrics based on account type
-                            metricsSection
-                        }
                         .padding(.horizontal)
+
+                        MonthlySummaryCard()
+                            .padding(.horizontal)
 
                         // Recent Activity
                         if let activities = viewModel.recentActivity?.activities, !activities.isEmpty {
@@ -115,7 +126,7 @@ struct HomeView: View {
                 .padding(.vertical)
             }
             .background(Color.alphaGroupedBackground)
-            .navigationTitle("Home")
+            .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -147,6 +158,10 @@ struct HomeView: View {
                 CreateInvoiceSheet(isPresented: $showingCreateInvoice)
                     .withAppTheme()
             }
+            .sheet(isPresented: $showingQuickBill) {
+                QuickBillSheet(isPresented: $showingQuickBill)
+                    .withAppTheme()
+            }
             .sheet(isPresented: $showingQuickEntry) {
                 QuickEntrySheet(isPresented: $showingQuickEntry)
                     .withAppTheme()
@@ -164,10 +179,6 @@ struct HomeView: View {
                     .withAppTheme()
             }
         }
-    }
-
-    private var hasNoData: Bool {
-        viewModel.businessMetrics == nil && viewModel.recentActivity == nil && !viewModel.isLoading
     }
 
     // MARK: - Account-Specific Metrics
@@ -330,6 +341,148 @@ struct HomeView: View {
         } else {
             return String(format: "$%.0f", value)
         }
+    }
+}
+
+private struct DashboardNextStepsView: View {
+    private let steps = [
+        ("high", "Review open invoices and bills", "Keep receivables and upcoming payments visible in one routine."),
+        ("medium", "Follow up on unpaid invoices", "A quick payment reminder can protect this month's cashflow."),
+        ("low", "Prepare tax-ready records", "Make sure income and expenses are categorized before export.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Alpha Next Steps")
+                .font(.alphaHeadline)
+                .foregroundColor(.alphaPrimaryText)
+
+            ForEach(steps, id: \.1) { priority, title, detail in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(priority)
+                        .font(.alphaCaption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.alphaSecondaryText)
+                        .textCase(.uppercase)
+
+                    Text(title)
+                        .font(.alphaBody)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.alphaPrimaryText)
+
+                    Text(detail)
+                        .font(.alphaBodySmall)
+                        .foregroundColor(.alphaSecondaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color.alphaCardBackground)
+                .cornerRadius(12)
+            }
+        }
+    }
+}
+
+private struct DashboardQuickActionsView: View {
+    @EnvironmentObject var appState: AppState
+    let onCreateInvoice: () -> Void
+    let onNewBill: () -> Void
+    let onLogHours: () -> Void
+    let onAddExpense: () -> Void
+    let onRecordPayment: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.alphaHeadline)
+                .foregroundColor(.alphaPrimaryText)
+
+            VStack(spacing: 12) {
+                if appState.hasCapability(.createInvoices) {
+                    action(title: "Create Invoice", subtitle: "Bill your clients", icon: "doc.badge.plus", color: .blue, action: onCreateInvoice)
+                }
+
+                if appState.hasCapability(.viewBills) || appState.hasCapability(.viewAccountsPayable) || appState.hasCapability(.manageBills) {
+                    action(title: "New Bill", subtitle: "Add a vendor bill", icon: "creditcard.fill", color: .indigo, action: onNewBill)
+                }
+
+                if appState.currentUser?.accountType != .business && appState.hasCapability(.trackTime) {
+                    action(title: "Log Time", subtitle: "Track your work hours", icon: "clock.fill", color: .purple, action: onLogHours)
+                }
+
+                if appState.hasCapability(.submitExpenses) {
+                    action(title: "Add Expense", subtitle: "Record an expense", icon: "receipt.fill", color: .green, action: onAddExpense)
+                }
+
+                if appState.hasCapability(.recordPayments) {
+                    action(title: "Record Payment", subtitle: "Log a payment received", icon: "dollarsign.circle.fill", color: .orange, action: onRecordPayment)
+                }
+            }
+        }
+    }
+
+    private func action(title: String, subtitle: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(color.opacity(0.14))
+                    .frame(width: 42, height: 42)
+                    .overlay {
+                        Image(systemName: icon)
+                            .foregroundColor(color)
+                    }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.alphaBody)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.alphaPrimaryText)
+                    Text(subtitle)
+                        .font(.alphaBodySmall)
+                        .foregroundColor(.alphaSecondaryText)
+                }
+
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.alphaTertiaryText)
+            }
+            .padding()
+            .background(Color.alphaCardBackground)
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct MonthlySummaryCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Monthly Summary")
+                .font(.alphaHeadline)
+                .foregroundColor(.alphaPrimaryText)
+
+            Text("This month needs a cashflow pass.")
+                .font(.alphaBody)
+                .fontWeight(.semibold)
+                .foregroundColor(.alphaPrimaryText)
+
+            Text("Review receivables, upcoming bills, and expense capture before moving into deeper accounting work.")
+                .font(.alphaBodySmall)
+                .foregroundColor(.alphaSecondaryText)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Collect or remind on open invoices.", systemImage: "checkmark.circle")
+                Label("Capture missing vendor bills and expenses.", systemImage: "checkmark.circle")
+                Label("Use Tax Prep once income and expenses look complete.", systemImage: "checkmark.circle")
+            }
+            .font(.alphaBodySmall)
+            .foregroundColor(.alphaSecondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.alphaCardBackground)
+        .cornerRadius(12)
     }
 }
 

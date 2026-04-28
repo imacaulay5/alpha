@@ -161,47 +161,29 @@ extension AppState {
 
     /// Determines which main tabs should be visible based on user capabilities and account type
     var visibleTabs: [MainTab] {
-        guard let user = currentUser else { return [.home] }
+        guard let user = currentUser else { return [.dashboard] }
 
-        var tabs: [MainTab] = [.home]
+        var tabs: [MainTab] = [.dashboard]
 
-        // Business accounts have a different tab structure
-        if user.accountType == .business {
-            // Business: Home, Tasks, Projects, Billing, Team
-            // Tasks tab - for logging and viewing time entries
-            if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) || user.hasCapability(.viewTeamTimeEntries) {
-                tabs.append(.tasks)
-            }
-
-            if user.hasCapability(.viewProjects) {
-                tabs.append(.projects)
-            }
-
-            if user.canAccessBilling {
-                tabs.append(.billing)
-            }
-
-            if user.canManageTeam {
-                tabs.append(.team)
-            }
-        } else {
-            // Personal/Freelancer: Home, Tasks, Billing, Projects
-            // Tasks tab - visible if user can track time
-            if user.hasCapability(.trackTime) || user.hasCapability(.viewOwnTimeEntries) {
-                tabs.append(.tasks)
-            }
-
-            // Billing tab - visible if user can access billing features
-            if user.canAccessBilling {
-                tabs.append(.billing)
-            }
-
-            // Projects tab - visible for users with project capabilities
-            if user.hasCapability(.viewProjects) {
-                tabs.append(.projects)
-            }
+        if user.hasCapability(.trackTime) ||
+            user.hasCapability(.viewOwnTimeEntries) ||
+            user.hasCapability(.viewTeamTimeEntries) {
+            tabs.append(.timeEntries)
         }
 
+        if user.canAccessBilling ||
+            user.hasCapability(.viewBills) ||
+            user.hasCapability(.viewAccountsPayable) ||
+            user.hasCapability(.viewOwnExpenses) ||
+            user.hasCapability(.viewTeamExpenses) {
+            tabs.append(.money)
+        }
+
+        if user.hasCapability(.viewProjects) {
+            tabs.append(.projects)
+        }
+
+        tabs.append(.more)
         return tabs
     }
 
@@ -288,49 +270,53 @@ enum AppModule: String, CaseIterable, Hashable {
 
 // MARK: - Main Tab Definition
 
+enum ProductScope {
+    static let showAdvancedModules = false
+}
+
 /// Main tabs for the app navigation
 enum MainTab: Int, Identifiable, CaseIterable {
-    case home = 0
-    case tasks = 1
-    case projects = 2
-    case billing = 3
-    case team = 4
+    case dashboard = 0
+    case timeEntries = 1
+    case money = 2
+    case projects = 3
+    case more = 4
 
     var id: Int { rawValue }
 
     var title: String {
         switch self {
-        case .home: return "Home"
-        case .tasks: return "Tasks"
+        case .dashboard: return "Dashboard"
+        case .timeEntries: return "Time"
+        case .money: return "Money"
         case .projects: return "Projects"
-        case .billing: return "Billing"
-        case .team: return "Team"
+        case .more: return "More"
         }
     }
 
     var icon: String {
         switch self {
-        case .home: return "house.fill"
-        case .tasks: return "list.bullet.clipboard"
+        case .dashboard: return "house.fill"
+        case .timeEntries: return "clock.fill"
+        case .money: return "creditcard.fill"
         case .projects: return "folder.fill"
-        case .billing: return "doc.text.fill"
-        case .team: return "person.3.fill"
+        case .more: return "ellipsis.circle.fill"
         }
     }
 
     /// Capability required to see this tab (nil = always visible)
     var requiredCapability: Capability? {
         switch self {
-        case .home:
+        case .dashboard:
             return nil // Always visible
-        case .tasks:
+        case .timeEntries:
             return .trackTime
+        case .money:
+            return nil
         case .projects:
             return .viewProjects
-        case .billing:
-            return .viewInvoices
-        case .team:
-            return .manageUsers // Only for business accounts with team management
+        case .more:
+            return nil
         }
     }
 }
