@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Supabase
+import PostgREST
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
@@ -342,6 +344,7 @@ private struct DataExportSettingsView: View {
     private var exportItems: [DataExportItem] {
         [
             DataExportItem(kind: .invoices, label: "Invoices", filename: "alpha-invoices.csv", capability: .viewInvoices),
+            DataExportItem(kind: .invoiceLineItems, label: "Invoice Line Items", filename: "alpha-invoice-lines.csv", capability: .viewInvoices),
             DataExportItem(kind: .expenses, label: "Expenses", filename: "alpha-expenses.csv", capability: .viewOwnExpenses),
             DataExportItem(kind: .bills, label: "Bills", filename: "alpha-bills.csv", capability: .viewBills),
             DataExportItem(kind: .clients, label: "Clients", filename: "alpha-clients.csv", capability: .viewClients),
@@ -452,6 +455,19 @@ private struct DataExportSettingsView: View {
                 ]
             }
 
+        case .invoiceLineItems:
+            return try await CSVExportDataSource.fetchInvoiceLineItems().map { item in
+                [
+                    "id": item.id,
+                    "invoice_id": item.invoiceId,
+                    "description": item.description,
+                    "quantity": CSVExportBuilder.amount(item.quantity),
+                    "rate": CSVExportBuilder.amount(item.rate),
+                    "amount": CSVExportBuilder.amount(item.amount),
+                    "order": "\(item.order)"
+                ]
+            }
+
         case .expenses:
             return try await ExpenseRepository().fetchExpenses().map { expense in
                 [
@@ -556,6 +572,7 @@ private struct DataExportItem: Identifiable {
 
 private enum DataExportKind {
     case invoices
+    case invoiceLineItems
     case expenses
     case bills
     case clients
@@ -567,6 +584,8 @@ private enum DataExportKind {
         switch self {
         case .invoices:
             return ["invoice_number", "client", "issue_date", "due_date", "status", "subtotal", "tax_amount", "total", "currency", "notes"]
+        case .invoiceLineItems:
+            return ["id", "invoice_id", "description", "quantity", "rate", "amount", "order"]
         case .expenses:
             return ["date", "merchant", "description", "category", "status", "amount", "currency", "project", "notes"]
         case .bills:
@@ -630,6 +649,39 @@ private enum CSVExportBuilder {
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
     }()
+}
+
+private enum CSVExportDataSource {
+    static func fetchInvoiceLineItems() async throws -> [InvoiceLineItemExportRow] {
+        let response = try await SupabaseClientManager.shared.client
+            .from("invoice_line_items")
+            .select("*")
+            .order("order", ascending: true)
+            .limit(500)
+            .execute()
+
+        return try JSONDecoder().decode([InvoiceLineItemExportRow].self, from: response.data)
+    }
+}
+
+private struct InvoiceLineItemExportRow: Decodable {
+    let id: String
+    let invoiceId: String
+    let description: String
+    let quantity: Double
+    let rate: Double
+    let amount: Double
+    let order: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case invoiceId = "invoice_id"
+        case description
+        case quantity
+        case rate
+        case amount
+        case order
+    }
 }
 
 private struct SettingsDetailRow: View {
