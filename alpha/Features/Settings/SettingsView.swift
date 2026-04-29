@@ -412,14 +412,6 @@ private struct DataExportSettingsView: View {
         Task {
             do {
                 let rows = try await rows(for: item.kind)
-                guard !rows.isEmpty else {
-                    await MainActor.run {
-                        errorMessage = "No \(item.label.lowercased()) records to export."
-                        exportingKind = nil
-                    }
-                    return
-                }
-
                 let csv = CSVExportBuilder.makeCSV(headers: item.kind.headers, rows: rows)
                 let url = FileManager.default.temporaryDirectory.appendingPathComponent(item.filename)
                 try csv.write(to: url, atomically: true, encoding: .utf8)
@@ -440,33 +432,20 @@ private struct DataExportSettingsView: View {
     private func rows(for kind: DataExportKind) async throws -> [[String: String]] {
         switch kind {
         case .invoices:
-            return try await InvoiceRepository().fetchInvoices(limit: 500).map { invoice in
-                [
-                    "invoice_number": invoice.invoiceNumber,
-                    "client": invoice.client?.name ?? invoice.clientId,
-                    "issue_date": CSVExportBuilder.date(invoice.issueDate),
-                    "due_date": CSVExportBuilder.date(invoice.dueDate),
-                    "status": invoice.status.rawValue,
-                    "subtotal": CSVExportBuilder.amount(invoice.subtotal),
-                    "tax_amount": CSVExportBuilder.amount(invoice.taxAmount ?? 0),
-                    "total": CSVExportBuilder.amount(invoice.total),
-                    "currency": invoice.currency,
-                    "notes": invoice.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(
+                table: "invoices",
+                headers: kind.headers,
+                orderColumn: "created_at",
+                ascending: false
+            )
 
         case .invoiceLineItems:
-            return try await CSVExportDataSource.fetchInvoiceLineItems().map { item in
-                [
-                    "id": item.id,
-                    "invoice_id": item.invoiceId,
-                    "description": item.description,
-                    "quantity": CSVExportBuilder.amount(item.quantity),
-                    "rate": CSVExportBuilder.amount(item.rate),
-                    "amount": CSVExportBuilder.amount(item.amount),
-                    "order": "\(item.order)"
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(
+                table: "invoice_line_items",
+                headers: kind.headers,
+                orderColumn: "order",
+                ascending: true
+            )
 
         case .expenses:
             return try await ExpenseRepository().fetchExpenses().map { expense in
@@ -583,7 +562,7 @@ private enum DataExportKind {
     var headers: [String] {
         switch self {
         case .invoices:
-            return ["invoice_number", "client", "issue_date", "due_date", "status", "subtotal", "tax_amount", "total", "currency", "notes"]
+            return ["id", "organization_id", "user_id", "client_id", "project_id", "invoice_number", "issue_date", "due_date", "subtotal", "tax_rate", "tax_amount", "total", "currency", "status", "notes"]
         case .invoiceLineItems:
             return ["id", "invoice_id", "description", "quantity", "rate", "amount", "order"]
         case .expenses:
@@ -652,35 +631,39 @@ private enum CSVExportBuilder {
 }
 
 private enum CSVExportDataSource {
-    static func fetchInvoiceLineItems() async throws -> [InvoiceLineItemExportRow] {
+    static func fetchRawRows(
+        table: String,
+        headers: [String],
+        orderColumn: String,
+        ascending: Bool
+    ) async throws -> [[String: String]] {
         let response = try await SupabaseClientManager.shared.client
-            .from("invoice_line_items")
+            .from(table)
             .select("*")
-            .order("order", ascending: true)
+            .order(orderColumn, ascending: ascending)
             .limit(500)
             .execute()
 
-        return try JSONDecoder().decode([InvoiceLineItemExportRow].self, from: response.data)
+        let object = try JSONSerialization.jsonObject(with: response.data)
+        let records = object as? [[String: Any]] ?? []
+        return records.map { record in
+            Dictionary(uniqueKeysWithValues: headers.map { header in
+                (header, stringValue(record[header]))
+            })
+        }
     }
-}
 
-private struct InvoiceLineItemExportRow: Decodable {
-    let id: String
-    let invoiceId: String
-    let description: String
-    let quantity: Double
-    let rate: Double
-    let amount: Double
-    let order: Int
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case invoiceId = "invoice_id"
-        case description
-        case quantity
-        case rate
-        case amount
-        case order
+    private static func stringValue(_ value: Any?) -> String {
+        switch value {
+        case nil, is NSNull:
+            return ""
+        case let number as NSNumber:
+            return "\(number)"
+        case let string as String:
+            return string
+        default:
+            return "\(value ?? "")"
+        }
     }
 }
 
