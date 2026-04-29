@@ -10,14 +10,17 @@ import Supabase
 
 class ExpenseRepository {
     private let supabase = SupabaseClientManager.shared.client
+    private let ownershipResolver = OwnershipResolver()
 
     func fetchExpenses() async throws -> [Expense] {
+        let scope = try await ownershipResolver.currentScope()
         let response = try await supabase
             .from("expenses")
             .select("""
                 *,
-                project:projects(id, name)
+                project:projects(*)
             """)
+            .eq("user_id", value: scope.userId)
             .order("expense_date", ascending: false)
             .execute()
 
@@ -30,7 +33,7 @@ class ExpenseRepository {
             .from("expenses")
             .select("""
                 *,
-                project:projects(id, name)
+                project:projects(*)
             """)
             .eq("id", value: id)
             .single()
@@ -51,7 +54,9 @@ class ExpenseRepository {
         notes: String?,
         status: String
     ) async throws -> Expense {
+        let scope = try await ownershipResolver.currentScope()
         let insert = ExpenseInsert(
+            userId: scope.userId,
             description: description,
             amount: amount,
             currency: currency,
@@ -86,7 +91,9 @@ class ExpenseRepository {
         notes: String?,
         status: String
     ) async throws -> Expense {
+        let scope = try await ownershipResolver.currentScope()
         let update = ExpenseInsert(
+            userId: scope.userId,
             description: description,
             amount: amount,
             currency: currency,
@@ -119,7 +126,7 @@ class ExpenseRepository {
             .eq("id", value: id)
             .select("""
                 *,
-                project:projects(id, name)
+                project:projects(*)
             """)
             .single()
             .execute()
@@ -140,6 +147,7 @@ class ExpenseRepository {
 // MARK: - Insert DTOs
 
 struct ExpenseInsert: Codable {
+    let userId: String
     let description: String
     let amount: Double
     let currency: String
@@ -151,6 +159,7 @@ struct ExpenseInsert: Codable {
     let status: String
 
     enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
         case description
         case amount
         case currency

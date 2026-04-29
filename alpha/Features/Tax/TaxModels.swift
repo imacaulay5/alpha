@@ -15,12 +15,22 @@ struct TaxDashboard: Codable, Sendable {
     let complianceRate: ComplianceRate
     let upcomingDeadlines: [TaxDeadline]
     let filings: [TaxFiling]
+    let taxExpenseCount: Int
+    let taxExpenseTotal: Double
+    let taxIncomeCount: Int
+    let taxIncomeTotal: Double
+    let exportWarningCount: Int
 
     enum CodingKeys: String, CodingKey {
         case taxLiability = "tax_liability"
         case complianceRate = "compliance_rate"
         case upcomingDeadlines = "upcoming_deadlines"
         case filings
+        case taxExpenseCount = "tax_expense_count"
+        case taxExpenseTotal = "tax_expense_total"
+        case taxIncomeCount = "tax_income_count"
+        case taxIncomeTotal = "tax_income_total"
+        case exportWarningCount = "export_warning_count"
     }
 }
 
@@ -152,6 +162,12 @@ struct TaxFiling: Codable, Sendable, Identifiable {
     let taxYear: Int
     let status: FilingStatus
     let amount: Double?
+    let name: String
+    let formType: String
+    let dueDate: Date
+    let taxPeriodStart: Date?
+    let taxPeriodEnd: Date?
+    let notes: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -160,18 +176,43 @@ struct TaxFiling: Codable, Sendable, Identifiable {
         case taxYear = "tax_year"
         case status
         case amount
+        case name
+        case formType = "form_type"
+        case dueDate = "due_date"
+        case taxPeriodStart = "tax_period_start"
+        case taxPeriodEnd = "tax_period_end"
+        case notes
     }
 }
 
 enum FilingStatus: String, Codable {
-    case draft = "DRAFT"
-    case filed = "FILED"
-    case accepted = "ACCEPTED"
-    case rejected = "REJECTED"
+    case notStarted = "not_started"
+    case inProgress = "in_progress"
+    case filed = "filed"
+    case accepted = "accepted"
+    case rejected = "rejected"
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        let normalized = rawValue.lowercased()
+        self = FilingStatus(rawValue: normalized) ?? .notStarted
+    }
+
+    var displayName: String {
+        switch self {
+        case .notStarted: return "Not Started"
+        case .inProgress: return "In Progress"
+        case .filed: return "Filed"
+        case .accepted: return "Accepted"
+        case .rejected: return "Rejected"
+        }
+    }
 
     var color: Color {
         switch self {
-        case .draft: return .gray
+        case .notStarted: return .gray
+        case .inProgress: return .orange
         case .filed: return .blue
         case .accepted: return .green
         case .rejected: return .red

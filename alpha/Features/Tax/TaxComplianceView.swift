@@ -44,6 +44,9 @@ struct TaxComplianceView: View {
                         // Tax Summary Cards
                         taxSummarySection(dashboard)
 
+                        // Tax-year records
+                        taxRecordsSection(dashboard)
+
                         // Upcoming Deadlines
                         upcomingDeadlinesSection(dashboard)
 
@@ -51,6 +54,8 @@ struct TaxComplianceView: View {
                         recentFilingsSection(dashboard)
                     }
                     .padding()
+                } else if let errorMessage = viewModel.errorMessage {
+                    errorView(errorMessage)
                 } else {
                     emptyStateView
                 }
@@ -114,6 +119,94 @@ struct TaxComplianceView: View {
                 )
             }
         }
+    }
+
+    // MARK: - Tax Records Section
+
+    @ViewBuilder
+    private func taxRecordsSection(_ dashboard: TaxDashboard) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Tax Prep Records")
+                .font(.alphaTitle)
+                .foregroundColor(.alphaPrimaryText)
+
+            VStack(spacing: 0) {
+                taxRecordRow(
+                    title: "Expenses",
+                    count: dashboard.taxExpenseCount,
+                    value: dashboard.taxExpenseTotal,
+                    icon: "receipt.fill",
+                    tint: .orange
+                )
+
+                Divider()
+                    .padding(.leading, 56)
+
+                taxRecordRow(
+                    title: "Income Records",
+                    count: dashboard.taxIncomeCount,
+                    value: dashboard.taxIncomeTotal,
+                    icon: "doc.text.fill",
+                    tint: .blue
+                )
+
+                Divider()
+                    .padding(.leading, 56)
+
+                HStack(spacing: 12) {
+                    Image(systemName: dashboard.exportWarningCount == 0 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .font(.title3)
+                        .foregroundColor(dashboard.exportWarningCount == 0 ? .green : .orange)
+                        .frame(width: 44, height: 44)
+                        .background((dashboard.exportWarningCount == 0 ? Color.green : Color.orange).opacity(0.1))
+                        .cornerRadius(10)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Readiness")
+                            .font(.alphaHeadline)
+                            .foregroundColor(.alphaPrimaryText)
+
+                        Text(dashboard.exportWarningCount == 0 ? "Ready to review" : "\(dashboard.exportWarningCount) flags to review")
+                            .font(.alphaBodySmall)
+                            .foregroundColor(.alphaSecondaryText)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+            }
+            .background(Color.alphaCardBackground)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    private func taxRecordRow(title: String, count: Int, value: Double, icon: String, tint: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(tint)
+                .frame(width: 44, height: 44)
+                .background(tint.opacity(0.1))
+                .cornerRadius(10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.alphaHeadline)
+                    .foregroundColor(.alphaPrimaryText)
+
+                Text("\(count) records")
+                    .font(.alphaBodySmall)
+                    .foregroundColor(.alphaSecondaryText)
+            }
+
+            Spacer()
+
+            Text(formatCurrency(value))
+                .font(.alphaHeadline)
+                .foregroundColor(.alphaPrimaryText)
+        }
+        .padding()
     }
 
     // MARK: - Upcoming Deadlines Section
@@ -206,6 +299,35 @@ struct TaxComplianceView: View {
                 .foregroundColor(.alphaSecondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
+
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 52))
+                .foregroundColor(.orange)
+
+            Text("Tax Prep Unavailable")
+                .font(.alphaTitle)
+                .foregroundColor(.alphaPrimaryText)
+
+            Text(message)
+                .font(.alphaBody)
+                .foregroundColor(.alphaSecondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Button {
+                Task {
+                    await viewModel.loadData()
+                }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.top, 100)

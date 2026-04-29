@@ -10,15 +10,25 @@ import Supabase
 
 class ProjectRepository {
     private let supabase = SupabaseClientManager.shared.client
+    private let ownershipResolver = OwnershipResolver()
 
     func fetchProjects() async throws -> [Project] {
-        let response = try await supabase
+        let scope = try await ownershipResolver.currentScope()
+        var query = supabase
             .from("projects")
             .select("""
                 *,
-                client:clients(id, name)
+                client:clients(*)
             """)
             .eq("is_active", value: true)
+
+        if let organizationId = scope.organizationId {
+            query = query.eq("organization_id", value: organizationId)
+        } else {
+            query = query.eq("user_id", value: scope.userId)
+        }
+
+        let response = try await query
             .order("name")
             .execute()
 
@@ -31,7 +41,7 @@ class ProjectRepository {
             .from("projects")
             .select("""
                 *,
-                client:clients(id, name),
+                client:clients(*),
                 tasks:tasks(*)
             """)
             .eq("id", value: id)
@@ -98,7 +108,10 @@ class ProjectRepository {
         budget: Double?,
         color: String?
     ) async throws -> Project {
+        let scope = try await ownershipResolver.currentScope()
         let insert = ProjectInsert(
+            organizationId: scope.organizationId,
+            userId: scope.organizationId == nil ? scope.userId : nil,
             name: name,
             clientId: clientId,
             description: description,
@@ -129,7 +142,10 @@ class ProjectRepository {
         budget: Double?,
         color: String?
     ) async throws -> Project {
+        let scope = try await ownershipResolver.currentScope()
         let update = ProjectInsert(
+            organizationId: scope.organizationId,
+            userId: scope.organizationId == nil ? scope.userId : nil,
             name: name,
             clientId: clientId,
             description: description,
@@ -175,6 +191,8 @@ struct ProjectActiveUpdate: Codable {
 }
 
 struct ProjectInsert: Codable {
+    let organizationId: String?
+    let userId: String?
     let name: String
     let clientId: String?
     let description: String?
@@ -184,6 +202,8 @@ struct ProjectInsert: Codable {
     let color: String?
 
     enum CodingKeys: String, CodingKey {
+        case organizationId = "organization_id"
+        case userId = "user_id"
         case name
         case clientId = "client_id"
         case description

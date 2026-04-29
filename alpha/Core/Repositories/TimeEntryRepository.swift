@@ -10,19 +10,22 @@ import Supabase
 
 class TimeEntryRepository {
     private let supabase = SupabaseClientManager.shared.client
+    private let ownershipResolver = OwnershipResolver()
 
     func fetchTimeEntries(
         startDate: Date? = nil,
         endDate: Date? = nil,
         projectId: String? = nil
     ) async throws -> [TimeEntry] {
+        let scope = try await ownershipResolver.currentScope()
         var query = supabase
             .from("time_entries")
             .select("""
                 *,
-                project:projects(id, name, billing_model, rate, color),
+                project:projects(*),
                 task:tasks(id, name, rate)
             """)
+            .eq("user_id", value: scope.userId)
 
         // Apply filters first
         if let startDate = startDate {
@@ -55,7 +58,9 @@ class TimeEntryRepository {
         notes: String?,
         source: String
     ) async throws -> TimeEntry {
+        let scope = try await ownershipResolver.currentScope()
         let insert = TimeEntryInsert(
+            userId: scope.userId,
             projectId: projectId,
             taskId: taskId,
             startAt: startAt.iso8601String,
@@ -90,14 +95,16 @@ class TimeEntryRepository {
         startDate: Date? = nil,
         endDate: Date? = nil
     ) async throws -> [TimeEntry] {
+        let scope = try await ownershipResolver.currentScope()
         var query = supabase
             .from("time_entries")
             .select("""
                 *,
-                project:projects(id, name, billing_model, rate, color),
+                project:projects(*),
                 task:tasks(id, name, rate)
             """)
             .eq("status", value: "APPROVED")
+            .eq("user_id", value: scope.userId)
             .is("invoice_id", value: nil)
 
         if let projectId = projectId {
@@ -199,6 +206,7 @@ struct TimeEntryUpdate: Codable {
 }
 
 struct TimeEntryInsert: Codable {
+    let userId: String
     let projectId: String
     let taskId: String?
     let startAt: String
@@ -209,6 +217,7 @@ struct TimeEntryInsert: Codable {
     let status: String
 
     enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
         case projectId = "project_id"
         case taskId = "task_id"
         case startAt = "start_at"

@@ -32,3 +32,32 @@ class SupabaseClientManager {
         print("🔧 SupabaseClient: Using anon key: \(config.anonKey.prefix(20))...")
     }
 }
+
+struct OwnershipScope {
+    let userId: String
+    let organizationId: String?
+
+    var usesOrganization: Bool {
+        organizationId != nil
+    }
+}
+
+final class OwnershipResolver {
+    private let supabase = SupabaseClientManager.shared.client
+
+    func currentScope() async throws -> OwnershipScope {
+        guard let userId = supabase.auth.currentSession?.user.id.uuidString else {
+            throw AuthError.notAuthenticated
+        }
+
+        let user: User = try await supabase
+            .from("users")
+            .select()
+            .eq("id", value: userId)
+            .single()
+            .execute()
+            .value
+
+        return OwnershipScope(userId: user.id, organizationId: user.organizationId)
+    }
+}

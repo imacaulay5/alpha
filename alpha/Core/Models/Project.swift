@@ -36,6 +36,7 @@ enum BillingModel: String, Codable {
 struct Project: Codable, Identifiable, Hashable {
     let id: String
     let organizationId: String?
+    let userId: String?
     let clientId: String?
     let name: String
     let description: String?
@@ -57,6 +58,7 @@ struct Project: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case organizationId = "organization_id"
+        case userId = "user_id"
         case clientId = "client_id"
         case name
         case description
@@ -106,6 +108,7 @@ extension Project {
     static let preview = Project(
         id: "project_1",
         organizationId: "org_1",
+        userId: nil,
         clientId: "client_1",
         name: "Website Redesign",
         description: "Complete overhaul of company website",
@@ -125,6 +128,7 @@ extension Project {
     static let previewFixed = Project(
         id: "project_2",
         organizationId: "org_1",
+        userId: nil,
         clientId: "client_1",
         name: "Mobile App Development",
         description: "iOS and Android app",

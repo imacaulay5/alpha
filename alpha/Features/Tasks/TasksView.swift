@@ -187,6 +187,7 @@ class TasksViewModel: ObservableObject {
                 project: firstEntry.project ?? Project(
                     id: projectId,
                     organizationId: nil,
+                    userId: nil,
                     clientId: nil,
                     name: "Unknown Project",
                     description: nil,

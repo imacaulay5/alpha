@@ -30,7 +30,7 @@ struct TaxFilingRow: View {
                         .font(.alphaHeadline)
                         .foregroundColor(.alphaPrimaryText)
 
-                    Text(filing.status.rawValue)
+                    Text(filing.status.displayName)
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -39,12 +39,12 @@ struct TaxFilingRow: View {
                         .cornerRadius(4)
                 }
 
-                Text("Tax Year \(filing.taxYear)")
+                Text("\(filing.name) · \(filing.formType)")
                     .font(.alphaBodySmall)
                     .foregroundColor(.alphaSecondaryText)
 
                 HStack(spacing: 12) {
-                    Label(formatDate(filing.filingDate), systemImage: "calendar")
+                    Label(formatDate(filing.dueDate), systemImage: "calendar")
                         .font(.alphaCaption)
                         .foregroundColor(.alphaTertiaryText)
 

@@ -9,7 +9,8 @@ import Foundation
 
 struct Contact: Codable, Identifiable, Hashable {
     let id: String
-    let organizationId: String
+    let organizationId: String?
+    let userId: String?
     var name: String
     var email: String?
     var phone: String?
@@ -27,6 +28,7 @@ struct Contact: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case organizationId = "organization_id"
+        case userId = "user_id"
         case name
         case email
         case phone
@@ -95,6 +97,7 @@ extension Contact {
     static let preview = Contact(
         id: "preview-1",
         organizationId: "org-1",
+        userId: nil,
         name: "Acme Corporation",
         email: "contact@acme.com",
         phone: "+1 555-0100",
@@ -114,6 +117,7 @@ extension Contact {
         Contact(
             id: "1",
             organizationId: "org-1",
+            userId: nil,
             name: "Acme Corporation",
             email: "contact@acme.com",
             phone: "+1 555-0100",
@@ -131,6 +135,7 @@ extension Contact {
         Contact(
             id: "2",
             organizationId: "org-1",
+            userId: nil,
             name: "TechCorp Inc",
             email: "info@techcorp.com",
             phone: "+1 555-0200",
@@ -148,6 +153,7 @@ extension Contact {
         Contact(
             id: "3",
             organizationId: "org-1",
+            userId: nil,
             name: "Global Industries",
             email: "hello@global.com",
             phone: "+1 555-0300",

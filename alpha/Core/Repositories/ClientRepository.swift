@@ -10,11 +10,19 @@ import Supabase
 
 class ClientRepository {
     private let supabase = SupabaseClientManager.shared.client
+    private let ownershipResolver = OwnershipResolver()
 
     func fetchClients(activeOnly: Bool = true) async throws -> [Contact] {
+        let scope = try await ownershipResolver.currentScope()
         var query = supabase
             .from("clients")
             .select("*")
+
+        if let organizationId = scope.organizationId {
+            query = query.eq("organization_id", value: organizationId)
+        } else {
+            query = query.eq("user_id", value: scope.userId)
+        }
 
         if activeOnly {
             query = query.eq("is_active", value: true)
@@ -52,7 +60,10 @@ class ClientRepository {
         contactName: String?,
         notes: String?
     ) async throws -> Contact {
+        let scope = try await ownershipResolver.currentScope()
         let insert = ClientInsert(
+            organizationId: scope.organizationId,
+            userId: scope.organizationId == nil ? scope.userId : nil,
             name: name,
             email: email,
             phone: phone,
@@ -89,7 +100,10 @@ class ClientRepository {
         contactName: String?,
         notes: String?
     ) async throws -> Contact {
+        let scope = try await ownershipResolver.currentScope()
         let update = ClientInsert(
+            organizationId: scope.organizationId,
+            userId: scope.organizationId == nil ? scope.userId : nil,
             name: name,
             email: email,
             phone: phone,
@@ -126,6 +140,8 @@ class ClientRepository {
 // MARK: - Insert DTO
 
 struct ClientInsert: Codable {
+    let organizationId: String?
+    let userId: String?
     let name: String
     let email: String?
     let phone: String?
@@ -138,6 +154,8 @@ struct ClientInsert: Codable {
     let notes: String?
 
     enum CodingKeys: String, CodingKey {
+        case organizationId = "organization_id"
+        case userId = "user_id"
         case name
         case email
         case phone

@@ -10,6 +10,7 @@ import Foundation
 struct Client: Codable, Identifiable, Hashable {
     let id: String
     let organizationId: String?
+    let userId: String?
     let name: String
     let email: String?
     let phone: String?
@@ -27,6 +28,7 @@ struct Client: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case organizationId = "organization_id"
+        case userId = "user_id"
         case name
         case email
         case phone
@@ -48,6 +50,7 @@ extension Client {
     static let preview = Client(
         id: "client_1",
         organizationId: "org_1",
+        userId: nil,
         name: "Tech Startup Inc",
         email: "contact@techstartup.com",
         phone: "+1 555-0200",
@@ -66,6 +69,7 @@ extension Client {
     static let previewMinimal = Client(
         id: "client_1",
         organizationId: nil,
+        userId: "user_1",
         name: "Tech Startup Inc",
         email: nil,
         phone: nil,
