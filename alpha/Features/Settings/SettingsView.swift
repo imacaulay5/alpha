@@ -335,16 +335,19 @@ private struct NotificationPreferencesView: View {
 private struct DataExportSettingsView: View {
     let appState: AppState
 
+    @State private var exportingKind: DataExportKind?
+    @State private var exportFile: ExportFile?
+    @State private var errorMessage: String?
+
     private var exportItems: [DataExportItem] {
         [
-            DataExportItem(label: "Invoices", filename: "alpha-invoices.csv", capability: .viewInvoices),
-            DataExportItem(label: "Invoice Line Items", filename: "alpha-invoice-lines.csv", capability: .viewInvoices),
-            DataExportItem(label: "Expenses", filename: "alpha-expenses.csv", capability: .viewOwnExpenses),
-            DataExportItem(label: "Bills", filename: "alpha-bills.csv", capability: .viewBills),
-            DataExportItem(label: "Clients", filename: "alpha-clients.csv", capability: .viewClients),
-            DataExportItem(label: "Projects", filename: "alpha-projects.csv", capability: .viewProjects),
-            DataExportItem(label: "Time Entries", filename: "alpha-time-entries.csv", capability: .viewOwnTimeEntries),
-            DataExportItem(label: "Tax Filings", filename: "alpha-tax-filings.csv", capability: .viewTaxDashboard)
+            DataExportItem(kind: .invoices, label: "Invoices", filename: "alpha-invoices.csv", capability: .viewInvoices),
+            DataExportItem(kind: .expenses, label: "Expenses", filename: "alpha-expenses.csv", capability: .viewOwnExpenses),
+            DataExportItem(kind: .bills, label: "Bills", filename: "alpha-bills.csv", capability: .viewBills),
+            DataExportItem(kind: .clients, label: "Clients", filename: "alpha-clients.csv", capability: .viewClients),
+            DataExportItem(kind: .projects, label: "Projects", filename: "alpha-projects.csv", capability: .viewProjects),
+            DataExportItem(kind: .timeEntries, label: "Time Entries", filename: "alpha-time-entries.csv", capability: .viewOwnTimeEntries),
+            DataExportItem(kind: .taxFilings, label: "Tax Filings", filename: "alpha-tax-filings.csv", capability: .viewTaxDashboard)
         ].filter { appState.hasCapability($0.capability) }
     }
 
@@ -352,37 +355,281 @@ private struct DataExportSettingsView: View {
         Form {
             Section {
                 ForEach(exportItems) { item in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(item.label)
-                            Spacer()
-                            Text("CSV")
+                                .foregroundColor(.alphaPrimaryText)
+
+                            Text(item.filename)
                                 .font(.alphaCaption)
                                 .foregroundColor(.alphaSecondaryText)
                         }
 
-                        Text(item.filename)
-                            .font(.alphaCaption)
-                            .foregroundColor(.alphaSecondaryText)
+                        Spacer()
+
+                        Button {
+                            export(item)
+                        } label: {
+                            if exportingKind == item.kind {
+                                ProgressView()
+                            } else {
+                                Label("CSV", systemImage: "square.and.arrow.up")
+                                    .font(.alphaCaption)
+                                    .foregroundColor(.alphaPrimary)
+                            }
+                        }
+                        .disabled(exportingKind != nil)
                     }
                     .padding(.vertical, 4)
                 }
             } header: {
                 Text("CSV Exports")
             } footer: {
-                Text("This matches the mobile V1 export surface from web Settings. File generation and sharing will be wired in a follow-up.")
+                Text("Download your data as CSV files. Exports include records visible to your account.")
+            }
+
+            if let errorMessage {
+                Section {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                }
             }
         }
         .navigationTitle("Export Data")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $exportFile) { file in
+            ShareSheet(activityItems: [file.url])
+        }
+    }
+
+    private func export(_ item: DataExportItem) {
+        exportingKind = item.kind
+        errorMessage = nil
+
+        Task {
+            do {
+                let rows = try await rows(for: item.kind)
+                guard !rows.isEmpty else {
+                    await MainActor.run {
+                        errorMessage = "No \(item.label.lowercased()) records to export."
+                        exportingKind = nil
+                    }
+                    return
+                }
+
+                let csv = CSVExportBuilder.makeCSV(headers: item.kind.headers, rows: rows)
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent(item.filename)
+                try csv.write(to: url, atomically: true, encoding: .utf8)
+
+                await MainActor.run {
+                    exportFile = ExportFile(url: url)
+                    exportingKind = nil
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to export \(item.label.lowercased()): \(error.localizedDescription)"
+                    exportingKind = nil
+                }
+            }
+        }
+    }
+
+    private func rows(for kind: DataExportKind) async throws -> [[String: String]] {
+        switch kind {
+        case .invoices:
+            return try await InvoiceRepository().fetchInvoices(limit: 500).map { invoice in
+                [
+                    "invoice_number": invoice.invoiceNumber,
+                    "client": invoice.client?.name ?? invoice.clientId,
+                    "issue_date": CSVExportBuilder.date(invoice.issueDate),
+                    "due_date": CSVExportBuilder.date(invoice.dueDate),
+                    "status": invoice.status.rawValue,
+                    "subtotal": CSVExportBuilder.amount(invoice.subtotal),
+                    "tax_amount": CSVExportBuilder.amount(invoice.taxAmount ?? 0),
+                    "total": CSVExportBuilder.amount(invoice.total),
+                    "currency": invoice.currency,
+                    "notes": invoice.notes ?? ""
+                ]
+            }
+
+        case .expenses:
+            return try await ExpenseRepository().fetchExpenses().map { expense in
+                [
+                    "date": CSVExportBuilder.date(expense.expenseDate),
+                    "merchant": expense.merchant ?? "",
+                    "description": expense.description,
+                    "category": expense.category.rawValue,
+                    "status": expense.status.rawValue,
+                    "amount": CSVExportBuilder.amount(expense.amount),
+                    "currency": expense.currency,
+                    "project": expense.project?.name ?? "",
+                    "notes": expense.notes ?? ""
+                ]
+            }
+
+        case .bills:
+            return try await BillRepository().fetchBills().map { bill in
+                [
+                    "name": bill.name,
+                    "payee": bill.payee,
+                    "due_date": CSVExportBuilder.date(bill.dueDate),
+                    "status": bill.status.rawValue,
+                    "recurrence": bill.recurrence.rawValue,
+                    "category": bill.category,
+                    "amount": CSVExportBuilder.amount(bill.amount),
+                    "currency": bill.currency,
+                    "auto_pay": bill.autoPay ? "true" : "false",
+                    "notes": bill.notes ?? ""
+                ]
+            }
+
+        case .clients:
+            return try await ClientRepository().fetchClients(activeOnly: false).map { client in
+                [
+                    "name": client.name,
+                    "email": client.email ?? "",
+                    "phone": client.phone ?? "",
+                    "contact_name": client.contactName ?? "",
+                    "address": client.fullAddress,
+                    "country": client.country ?? "",
+                    "is_active": client.isActive ? "true" : "false",
+                    "notes": client.notes ?? ""
+                ]
+            }
+
+        case .projects:
+            return try await ProjectRepository().fetchProjects().map { project in
+                [
+                    "name": project.name,
+                    "client": project.client?.name ?? "",
+                    "billing_model": project.billingModel.rawValue,
+                    "rate": project.rate.map(CSVExportBuilder.amount) ?? "",
+                    "budget": project.budget.map(CSVExportBuilder.amount) ?? "",
+                    "start_date": project.startDate.map(CSVExportBuilder.date) ?? "",
+                    "end_date": project.endDate.map(CSVExportBuilder.date) ?? "",
+                    "is_active": (project.isActive ?? true) ? "true" : "false",
+                    "description": project.description ?? ""
+                ]
+            }
+
+        case .timeEntries:
+            return try await TimeEntryRepository().fetchTimeEntries().map { entry in
+                [
+                    "project": entry.project?.name ?? entry.projectId,
+                    "task": entry.task?.name ?? "",
+                    "start_at": CSVExportBuilder.dateTime(entry.startAt),
+                    "end_at": CSVExportBuilder.dateTime(entry.endAt),
+                    "duration_minutes": "\(entry.durationMinutes)",
+                    "status": entry.status.rawValue,
+                    "source": entry.source.rawValue,
+                    "billable_rate": entry.billableRate.map(CSVExportBuilder.amount) ?? "",
+                    "invoice_id": entry.invoiceId ?? "",
+                    "notes": entry.notes ?? ""
+                ]
+            }
+
+        case .taxFilings:
+            return try await TaxRepository().fetchTaxDashboard().filings.map { filing in
+                [
+                    "name": filing.name,
+                    "form_type": filing.formType,
+                    "due_date": CSVExportBuilder.date(filing.dueDate),
+                    "status": filing.status.rawValue,
+                    "amount": filing.amount.map(CSVExportBuilder.amount) ?? "",
+                    "tax_year": "\(filing.taxYear)",
+                    "period_start": filing.taxPeriodStart.map(CSVExportBuilder.date) ?? "",
+                    "period_end": filing.taxPeriodEnd.map(CSVExportBuilder.date) ?? "",
+                    "notes": filing.notes ?? ""
+                ]
+            }
+        }
     }
 }
 
 private struct DataExportItem: Identifiable {
-    let id = UUID()
+    var id: DataExportKind { kind }
+    let kind: DataExportKind
     let label: String
     let filename: String
     let capability: Capability
+}
+
+private enum DataExportKind {
+    case invoices
+    case expenses
+    case bills
+    case clients
+    case projects
+    case timeEntries
+    case taxFilings
+
+    var headers: [String] {
+        switch self {
+        case .invoices:
+            return ["invoice_number", "client", "issue_date", "due_date", "status", "subtotal", "tax_amount", "total", "currency", "notes"]
+        case .expenses:
+            return ["date", "merchant", "description", "category", "status", "amount", "currency", "project", "notes"]
+        case .bills:
+            return ["name", "payee", "due_date", "status", "recurrence", "category", "amount", "currency", "auto_pay", "notes"]
+        case .clients:
+            return ["name", "email", "phone", "contact_name", "address", "country", "is_active", "notes"]
+        case .projects:
+            return ["name", "client", "billing_model", "rate", "budget", "start_date", "end_date", "is_active", "description"]
+        case .timeEntries:
+            return ["project", "task", "start_at", "end_at", "duration_minutes", "status", "source", "billable_rate", "invoice_id", "notes"]
+        case .taxFilings:
+            return ["name", "form_type", "due_date", "status", "amount", "tax_year", "period_start", "period_end", "notes"]
+        }
+    }
+}
+
+private struct ExportFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private enum CSVExportBuilder {
+    static func makeCSV(headers: [String], rows: [[String: String]]) -> String {
+        let lines = rows.map { row in
+            headers.map { escape(row[$0] ?? "") }.joined(separator: ",")
+        }
+
+        return ([headers.joined(separator: ",")] + lines).joined(separator: "\n")
+    }
+
+    static func date(_ date: Date) -> String {
+        dateFormatter.string(from: date)
+    }
+
+    static func dateTime(_ date: Date) -> String {
+        dateTimeFormatter.string(from: date)
+    }
+
+    static func amount(_ amount: Double) -> String {
+        String(format: "%.2f", amount)
+    }
+
+    private static func escape(_ value: String) -> String {
+        if value.contains(",") || value.contains("\"") || value.contains("\n") {
+            return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+        }
+
+        return value
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let dateTimeFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }
 
 private struct SettingsDetailRow: View {
