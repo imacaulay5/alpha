@@ -448,95 +448,22 @@ private struct DataExportSettingsView: View {
             )
 
         case .expenses:
-            return try await ExpenseRepository().fetchExpenses().map { expense in
-                [
-                    "date": CSVExportBuilder.date(expense.expenseDate),
-                    "merchant": expense.merchant ?? "",
-                    "description": expense.description,
-                    "category": expense.category.rawValue,
-                    "status": expense.status.rawValue,
-                    "amount": CSVExportBuilder.amount(expense.amount),
-                    "currency": expense.currency,
-                    "project": expense.project?.name ?? "",
-                    "notes": expense.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "expenses", headers: kind.headers)
 
         case .bills:
-            return try await BillRepository().fetchBills().map { bill in
-                [
-                    "name": bill.name,
-                    "payee": bill.payee,
-                    "due_date": CSVExportBuilder.date(bill.dueDate),
-                    "status": bill.status.rawValue,
-                    "recurrence": bill.recurrence.rawValue,
-                    "category": bill.category,
-                    "amount": CSVExportBuilder.amount(bill.amount),
-                    "currency": bill.currency,
-                    "auto_pay": bill.autoPay ? "true" : "false",
-                    "notes": bill.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "bills", headers: kind.headers)
 
         case .clients:
-            return try await ClientRepository().fetchClients(activeOnly: false).map { client in
-                [
-                    "name": client.name,
-                    "email": client.email ?? "",
-                    "phone": client.phone ?? "",
-                    "contact_name": client.contactName ?? "",
-                    "address": client.fullAddress,
-                    "country": client.country ?? "",
-                    "is_active": client.isActive ? "true" : "false",
-                    "notes": client.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "clients", headers: kind.headers)
 
         case .projects:
-            return try await ProjectRepository().fetchProjects().map { project in
-                [
-                    "name": project.name,
-                    "client": project.client?.name ?? "",
-                    "billing_model": project.billingModel.rawValue,
-                    "rate": project.rate.map(CSVExportBuilder.amount) ?? "",
-                    "budget": project.budget.map(CSVExportBuilder.amount) ?? "",
-                    "start_date": project.startDate.map(CSVExportBuilder.date) ?? "",
-                    "end_date": project.endDate.map(CSVExportBuilder.date) ?? "",
-                    "is_active": (project.isActive ?? true) ? "true" : "false",
-                    "description": project.description ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "projects", headers: kind.headers)
 
         case .timeEntries:
-            return try await TimeEntryRepository().fetchTimeEntries().map { entry in
-                [
-                    "project": entry.project?.name ?? entry.projectId,
-                    "task": entry.task?.name ?? "",
-                    "start_at": CSVExportBuilder.dateTime(entry.startAt),
-                    "end_at": CSVExportBuilder.dateTime(entry.endAt),
-                    "duration_minutes": "\(entry.durationMinutes)",
-                    "status": entry.status.rawValue,
-                    "source": entry.source.rawValue,
-                    "billable_rate": entry.billableRate.map(CSVExportBuilder.amount) ?? "",
-                    "invoice_id": entry.invoiceId ?? "",
-                    "notes": entry.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "time_entries", headers: kind.headers)
 
         case .taxFilings:
-            return try await TaxRepository().fetchTaxDashboard().filings.map { filing in
-                [
-                    "name": filing.name,
-                    "form_type": filing.formType,
-                    "due_date": CSVExportBuilder.date(filing.dueDate),
-                    "status": filing.status.rawValue,
-                    "amount": filing.amount.map(CSVExportBuilder.amount) ?? "",
-                    "tax_year": "\(filing.taxYear)",
-                    "period_start": filing.taxPeriodStart.map(CSVExportBuilder.date) ?? "",
-                    "period_end": filing.taxPeriodEnd.map(CSVExportBuilder.date) ?? "",
-                    "notes": filing.notes ?? ""
-                ]
-            }
+            return try await CSVExportDataSource.fetchRawRows(table: "tax_filings", headers: kind.headers)
         }
     }
 }
@@ -566,17 +493,17 @@ private enum DataExportKind {
         case .invoiceLineItems:
             return ["id", "invoice_id", "description", "quantity", "rate", "amount", "order"]
         case .expenses:
-            return ["date", "merchant", "description", "category", "status", "amount", "currency", "project", "notes"]
+            return ["id", "user_id", "project_id", "task_id", "amount", "currency", "category", "description", "merchant", "expense_date", "receipt_url", "status", "notes", "invoice_id", "created_at", "updated_at"]
         case .bills:
-            return ["name", "payee", "due_date", "status", "recurrence", "category", "amount", "currency", "auto_pay", "notes"]
+            return ["id", "user_id", "name", "payee", "amount", "currency", "category", "due_date", "status", "recurrence", "notes", "paid_at", "auto_pay", "created_at", "updated_at"]
         case .clients:
-            return ["name", "email", "phone", "contact_name", "address", "country", "is_active", "notes"]
+            return ["id", "organization_id", "user_id", "name", "email", "phone", "address", "city", "state", "zip_code", "country", "contact_name", "notes", "is_active", "created_at", "updated_at"]
         case .projects:
-            return ["name", "client", "billing_model", "rate", "budget", "start_date", "end_date", "is_active", "description"]
+            return ["id", "organization_id", "user_id", "client_id", "name", "description", "billing_model", "rate", "budget", "start_date", "end_date", "is_active", "color", "created_at", "updated_at"]
         case .timeEntries:
-            return ["project", "task", "start_at", "end_at", "duration_minutes", "status", "source", "billable_rate", "invoice_id", "notes"]
+            return ["id", "user_id", "project_id", "task_id", "start_at", "end_at", "duration_minutes", "notes", "status", "source", "billable_rate", "invoice_id", "created_at", "updated_at"]
         case .taxFilings:
-            return ["name", "form_type", "due_date", "status", "amount", "tax_year", "period_start", "period_end", "notes"]
+            return ["id", "organization_id", "user_id", "name", "form_type", "tax_period_start", "tax_period_end", "due_date", "filed_date", "status", "amount_due", "amount_paid", "notes", "created_at", "updated_at"]
         }
     }
 }
@@ -634,8 +561,8 @@ private enum CSVExportDataSource {
     static func fetchRawRows(
         table: String,
         headers: [String],
-        orderColumn: String,
-        ascending: Bool
+        orderColumn: String = "created_at",
+        ascending: Bool = false
     ) async throws -> [[String: String]] {
         let response = try await SupabaseClientManager.shared.client
             .from(table)
