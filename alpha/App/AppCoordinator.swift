@@ -65,7 +65,7 @@ private struct RecoveryBanner: View {
 
             Text(message)
                 .font(.alphaBody)
-                .foregroundColor(.alphaText)
+                .foregroundColor(.alphaPrimaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button("Dismiss", action: dismiss)
@@ -74,7 +74,7 @@ private struct RecoveryBanner: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.alphaSurface)
+                .fill(Color.alphaCardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)

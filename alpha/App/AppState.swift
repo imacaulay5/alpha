@@ -93,7 +93,8 @@ class AppState: ObservableObject {
         restoreGeneration = generation
 
         let task = Task { @MainActor [weak self] in
-            await self?.performRestore(trigger: trigger)
+            guard let self else { return }
+            await self.performRestore(trigger: trigger)
         }
 
         restoreTask = task
@@ -120,7 +121,8 @@ class AppState: ObservableObject {
             isAuthenticated = true
             isLoading = false
 
-            print("✅ AppState.performRestore(\(trigger)): restored user=\(restoredState.user.id) org=\(restoredState.organization?.id ?? \"none\")")
+            let restoredOrganizationId = restoredState.organization?.id ?? "none"
+            print("✅ AppState.performRestore(\(trigger)): restored user=\(restoredState.user.id) org=\(restoredOrganizationId)")
         } catch is CancellationError {
             print("ℹ️ AppState.performRestore(\(trigger)): cancelled")
         } catch {
