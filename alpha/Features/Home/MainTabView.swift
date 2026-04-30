@@ -10,6 +10,7 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab = 0
+    @State private var selectedMoneySection: MoneySection = .invoices
     @State private var showingQuickActions = false
     @State private var showingQuickEntry = false
     @State private var showingCreateInvoice = false
@@ -152,15 +153,37 @@ struct MainTabView: View {
     private func tabContent(for tab: MainTab) -> some View {
         switch tab {
         case .dashboard:
-            HomeView()
+            HomeView { destination in
+                openFinancialSearchDestination(destination)
+            }
         case .timeEntries:
             TasksView()
         case .money:
-            MoneyView()
+            MoneyView(selectedSection: $selectedMoneySection)
         case .projects:
             ProjectsListView()
         case .more:
             MoreView()
+        }
+    }
+
+    private func openFinancialSearchDestination(_ destination: FinancialSearchDestination) {
+        switch destination {
+        case .invoices:
+            selectedMoneySection = .invoices
+            selectedTab = MainTab.money.rawValue
+        case .bills:
+            selectedMoneySection = .bills
+            selectedTab = MainTab.money.rawValue
+        case .expenses:
+            selectedMoneySection = .expenses
+            selectedTab = MainTab.money.rawValue
+        case .timeEntries:
+            selectedTab = MainTab.timeEntries.rawValue
+        case .projects:
+            selectedTab = MainTab.projects.rawValue
+        case .taxPrep:
+            selectedTab = MainTab.more.rawValue
         }
     }
 
@@ -237,7 +260,7 @@ private enum MoneySection: String, CaseIterable, Identifiable {
 
 private struct MoneyView: View {
     @EnvironmentObject var appState: AppState
-    @State private var selectedSection: MoneySection = .invoices
+    @Binding var selectedSection: MoneySection
 
     private var visibleSections: [MoneySection] {
         var sections: [MoneySection] = []

@@ -45,12 +45,18 @@ class HomeViewModel: ObservableObject {
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = HomeViewModel()
+    let onFinancialSearchDestination: (FinancialSearchDestination) -> Void
     @State private var showingCreateInvoice = false
     @State private var showingQuickBill = false
     @State private var showingQuickEntry = false
     @State private var showingAddExpense = false
     @State private var showingRecordPayment = false
     @State private var showingAccount = false
+    @State private var showingTaxPrep = false
+
+    init(onFinancialSearchDestination: @escaping (FinancialSearchDestination) -> Void = { _ in }) {
+        self.onFinancialSearchDestination = onFinancialSearchDestination
+    }
 
     var body: some View {
         NavigationStack {
@@ -81,6 +87,11 @@ struct HomeView: View {
 
                         DashboardNextStepsView()
                             .padding(.horizontal)
+
+                        DashboardFinancialSearchView { destination in
+                            openFinancialSearchDestination(destination)
+                        }
+                        .padding(.horizontal)
 
                         DashboardQuickActionsView(
                             onCreateInvoice: { showingCreateInvoice = true },
@@ -178,6 +189,20 @@ struct HomeView: View {
                 AccountSheet(isPresented: $showingAccount)
                     .withAppTheme()
             }
+            .sheet(isPresented: $showingTaxPrep) {
+                NavigationStack {
+                    TaxComplianceView()
+                }
+                .withAppTheme()
+            }
+        }
+    }
+
+    private func openFinancialSearchDestination(_ destination: FinancialSearchDestination) {
+        if destination == .taxPrep {
+            showingTaxPrep = true
+        } else {
+            onFinancialSearchDestination(destination)
         }
     }
 
@@ -344,6 +369,15 @@ struct HomeView: View {
     }
 }
 
+enum FinancialSearchDestination {
+    case invoices
+    case bills
+    case expenses
+    case timeEntries
+    case projects
+    case taxPrep
+}
+
 private struct DashboardNextStepsView: View {
     private let steps = [
         ("high", "Review open invoices and bills", "Keep receivables and upcoming payments visible in one routine."),
@@ -380,6 +414,293 @@ private struct DashboardNextStepsView: View {
                 .cornerRadius(12)
             }
         }
+    }
+}
+
+private struct DashboardFinancialSearchView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var query = ""
+    let onOpen: (FinancialSearchDestination) -> Void
+
+    private var suggestions: [String] {
+        [
+            "overdue bills",
+            "tax expenses",
+            "receipts",
+            appState.currentUser?.accountType == .personal ? "monthly spending" : "invoices"
+        ]
+    }
+
+    private var results: [FinancialSearchResult] {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return [] }
+
+        var matches: [FinancialSearchResult] = []
+
+        if contains(normalized, anyOf: ["invoice", "invoices", "paid", "payment", "client", "customer", "overdue"]) &&
+            (appState.hasCapability(.viewInvoices) || appState.hasCapability(.viewAccountsReceivable)) {
+            matches.append(FinancialSearchResult(
+                priority: .high,
+                title: appState.currentUser?.accountType == .freelancer ? "Invoice workflow is the best match" : "Receivables need an invoice pass",
+                detail: appState.currentUser?.accountType == .freelancer ? "Review open invoices or draft invoices from tracked work." : "Open invoices, reminders, and payment follow-ups live together.",
+                label: "Open Invoices",
+                icon: "doc.text.fill",
+                destination: .invoices
+            ))
+        }
+
+        if contains(normalized, anyOf: ["bill", "bills", "vendor", "payable", "due", "pay"]) &&
+            (appState.hasCapability(.viewBills) || appState.hasCapability(.viewAccountsPayable) || appState.hasCapability(.manageBills)) {
+            matches.append(FinancialSearchResult(
+                priority: .medium,
+                title: "Bills and vendor payments are the best match",
+                detail: "Review upcoming bills, reminders, and payables before close.",
+                label: "Open Bills",
+                icon: "creditcard.fill",
+                destination: .bills
+            ))
+        }
+
+        if contains(normalized, anyOf: ["expense", "expenses", "spending", "receipt", "receipts", "category", "categorize", "monthly"]) &&
+            (appState.hasCapability(.viewOwnExpenses) || appState.hasCapability(.viewTeamExpenses) || appState.hasCapability(.submitExpenses)) {
+            matches.append(FinancialSearchResult(
+                priority: .medium,
+                title: "Expense capture is the best match",
+                detail: "Use expense review to keep receipts and categories ready for reporting.",
+                label: "Open Expenses",
+                icon: "receipt.fill",
+                destination: .expenses
+            ))
+        }
+
+        if contains(normalized, anyOf: ["time", "hours", "project", "work"]) &&
+            (appState.hasCapability(.trackTime) || appState.hasCapability(.viewOwnTimeEntries) || appState.hasCapability(.viewTeamTimeEntries)) {
+            matches.append(FinancialSearchResult(
+                priority: .medium,
+                title: "Tracked work is the best match",
+                detail: "Review billable time, then turn complete work into invoices.",
+                label: "Open Time",
+                icon: "clock.fill",
+                destination: .timeEntries
+            ))
+        }
+
+        if contains(normalized, anyOf: ["project", "projects", "client work", "budget"]) &&
+            appState.hasCapability(.viewProjects) {
+            matches.append(FinancialSearchResult(
+                priority: .low,
+                title: "Project records are the best match",
+                detail: "Check project status, budgets, and linked client work.",
+                label: "Open Projects",
+                icon: "folder.fill",
+                destination: .projects
+            ))
+        }
+
+        if contains(normalized, anyOf: ["tax", "deduction", "deductions", "export", "quarterly", "1099"]) &&
+            appState.hasCapability(.viewTaxDashboard) {
+            matches.append(FinancialSearchResult(
+                priority: .medium,
+                title: "Tax Prep is the best match",
+                detail: "Review categorized income and expenses before exporting records.",
+                label: "Open Tax Prep",
+                icon: "calculator.fill",
+                destination: .taxPrep
+            ))
+        }
+
+        return matches
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Financial Search", systemImage: "magnifyingglass")
+                .font(.alphaHeadline)
+                .foregroundColor(.alphaPrimaryText)
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.alphaSecondaryText)
+
+                TextField("Search bills, tax, receipts, invoices...", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .font(.alphaBody)
+
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.alphaTertiaryText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(12)
+            .background(Color.alphaGroupedBackground)
+            .cornerRadius(10)
+
+            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                suggestionChips
+            } else if results.isEmpty {
+                Text("No matching workflow found.")
+                    .font(.alphaBodySmall)
+                    .foregroundColor(.alphaSecondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(results) { result in
+                        resultButton(result)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.alphaCardBackground)
+        .cornerRadius(12)
+    }
+
+    private var suggestionChips: some View {
+        FlowLayout(spacing: 8) {
+            ForEach(suggestions, id: \.self) { suggestion in
+                Button {
+                    query = suggestion
+                } label: {
+                    Text(suggestion)
+                        .font(.alphaCaption)
+                        .foregroundColor(.alphaPrimaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.alphaGroupedBackground)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func resultButton(_ result: FinancialSearchResult) -> some View {
+        Button {
+            onOpen(result.destination)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Circle()
+                    .fill(result.priority.color.opacity(0.14))
+                    .frame(width: 38, height: 38)
+                    .overlay {
+                        Image(systemName: result.icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(result.priority.color)
+                    }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(result.priority.rawValue.uppercased())
+                        .font(.alphaCaption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(result.priority.color)
+
+                    Text(result.title)
+                        .font(.alphaBody)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.alphaPrimaryText)
+
+                    Text(result.detail)
+                        .font(.alphaBodySmall)
+                        .foregroundColor(.alphaSecondaryText)
+
+                    Text(result.label)
+                        .font(.alphaCaption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.alphaPrimary)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.alphaTertiaryText)
+                    .padding(.top, 4)
+            }
+            .padding(12)
+            .background(Color.alphaGroupedBackground)
+            .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func contains(_ query: String, anyOf terms: [String]) -> Bool {
+        terms.contains { query.contains($0) }
+    }
+}
+
+private struct FinancialSearchResult: Identifiable {
+    let id = UUID()
+    let priority: FinancialSearchPriority
+    let title: String
+    let detail: String
+    let label: String
+    let icon: String
+    let destination: FinancialSearchDestination
+}
+
+private enum FinancialSearchPriority: String {
+    case high
+    case medium
+    case low
+
+    var color: Color {
+        switch self {
+        case .high:
+            return .red
+        case .medium:
+            return .orange
+        case .low:
+            return .blue
+        }
+    }
+}
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        return layout(in: width, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let layout = layout(in: bounds.width, subviews: subviews)
+        for (index, origin) in layout.origins.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func layout(in width: CGFloat, subviews: Subviews) -> (origins: [CGPoint], size: CGSize) {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+
+            origins.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return (origins, CGSize(width: width, height: y + rowHeight))
     }
 }
 
